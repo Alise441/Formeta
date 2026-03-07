@@ -17,6 +17,15 @@ from bot.keyboards import (
 logger = logging.getLogger(__name__)
 
 
+def _lesson_date(lesson: dict) -> str:
+    """Format lesson started_at as dd.mm.yyyy."""
+    ts = lesson.get("started_at", "")
+    if ts and len(ts) >= 10:
+        parts = ts[:10].split("-")  # YYYY-MM-DD
+        return f"{parts[2]}.{parts[1]}.{parts[0]}"
+    return "?"
+
+
 def authorized(func):
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
@@ -32,7 +41,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lesson = await repo.get_active_lesson()
     if lesson:
         kb = lesson_active_keyboard()
-        text = f"Урок #{lesson['id']} активен. Отправляйте слова!"
+        text = f"{_lesson_date(lesson)} Урок активен. Отправляйте слова!"
     else:
         kb = idle_keyboard()
         text = "Привет! Нажмите «Начать урок», чтобы начать записывать слова."
@@ -44,13 +53,14 @@ async def handle_start_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE
     active = await repo.get_active_lesson()
     if active:
         await update.message.reply_text(
-            f"Урок #{active['id']} уже идёт. Отправляйте слова!",
+            f"{_lesson_date(active)} Урок уже идёт. Отправляйте слова!",
             reply_markup=lesson_active_keyboard(),
         )
         return
     lesson_id = await repo.create_lesson()
+    lesson = await repo.get_active_lesson()
     await update.message.reply_text(
-        f"Урок #{lesson_id} начат! Отправляйте немецкие слова или фразы.",
+        f"{_lesson_date(lesson)} Урок начат! Отправляйте немецкие слова или фразы.",
         reply_markup=lesson_active_keyboard(),
     )
 
@@ -63,13 +73,14 @@ async def handle_end_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Нет активного урока.", reply_markup=idle_keyboard()
         )
         return
+    date = _lesson_date(lesson)
     lesson_id = lesson["id"]
     await repo.end_lesson(lesson_id)
     count = await repo.count_lesson_cards(lesson_id)
     cards = await repo.get_lesson_cards(lesson_id)
     word_list = ", ".join(c["base_form"] for c in cards) if cards else "—"
     await update.message.reply_text(
-        f"Урок #{lesson_id} завершён!\n"
+        f"{date} Урок завершён!\n"
         f"Слов: {count}\n"
         f"Слова: {word_list}\n\n"
         f"Нажмите «Экспорт в Anki» для генерации колоды.",
@@ -88,7 +99,7 @@ async def handle_resume_lesson(update: Update, context: ContextTypes.DEFAULT_TYP
         return
     await repo.resume_lesson(lesson["id"])
     await update.message.reply_text(
-        f"Урок #{lesson['id']} возобновлён! Отправляйте слова.",
+        f"{_lesson_date(lesson)} Урок возобновлён! Отправляйте слова.",
         reply_markup=lesson_active_keyboard(),
     )
 
@@ -110,11 +121,20 @@ async def handle_export(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("В уроке нет карточек.")
         return
     await update.message.reply_text("Генерирую колоду...")
-    filepath = generate_deck(lesson["id"], cards)
+    # Format lesson date as dd.mm
+    date_str = lesson["started_at"][:10] if lesson["started_at"] else ""
+    if date_str:
+        # started_at is ISO format: YYYY-MM-DD...
+        parts = date_str.split("-")
+        lesson_date = f"{parts[2]}.{parts[1]}"
+    else:
+        lesson_date = str(lesson["id"])
+    filepath = generate_deck(lesson["id"], cards, lesson_date)
+    filename = f"formeta_lesson_{lesson_date}.apkg"
     await update.message.reply_document(
         document=open(filepath, "rb"),
-        filename=f"formeta_lesson_{lesson['id']}.apkg",
-        caption=f"Anki-колода за урок #{lesson['id']} ({len(cards)} карточек)",
+        filename=filename,
+        caption=f"Anki-колода за {lesson_date} ({len(cards)} карточек)",
     )
 
 
@@ -128,8 +148,8 @@ async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for lesson in lessons:
         count = await repo.count_lesson_cards(lesson["id"])
         status = "активен" if lesson["status"] == "active" else "завершён"
-        date = lesson["started_at"][:10] if lesson["started_at"] else "?"
-        lines.append(f"#{lesson['id']} — {date} — {count} слов — {status}")
+        date = _lesson_date(lesson)
+        lines.append(f"#{lesson['id']} {date} — {count} слов — {status}")
     await update.message.reply_text("\n".join(lines))
 
 
@@ -158,6 +178,11 @@ async def handle_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # Build example dict from LLM response
+    example = None
+    if data.get("example_de"):
+        example = {"de": data["example_de"], "ru": data.get("example_ru", "")}
+
     card_id = await repo.create_card(
         lesson_id=lesson["id"],
         raw_input=text,
@@ -165,7 +190,8 @@ async def handle_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
         word_type=data["word_type"],
         forms=data.get("forms"),
         translation=data["translation"],
-        examples=data.get("examples"),
+        example=example,
+        prepositions=data.get("prepositions", []),
         created_by=update.effective_user.username or str(update.effective_user.id),
     )
 

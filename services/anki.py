@@ -28,27 +28,29 @@ CARD_MODEL = genanki.Model(
         font-family: 'Helvetica Neue', Arial, sans-serif;
         font-size: 18px;
         text-align: center;
-        color: #333;
-        background-color: #fafafa;
         padding: 20px;
     }
-    h2 { margin: 0 0 8px 0; color: #1a1a2e; }
-    h3 { margin: 0 0 12px 0; color: #16213e; }
-    i { color: #666; font-size: 14px; }
+    h2 { margin: 0 0 8px 0; }
+    h3 { margin: 0 0 12px 0; }
+    i { font-size: 14px; opacity: 0.7; }
     p { margin: 4px 0; }
-    ul { text-align: left; padding-left: 20px; }
-    li { margin: 6px 0; }
-    b { color: #e94560; }
+    .prep { font-size: 15px; opacity: 0.85; }
+    .example { margin-top: 12px; }
+    .example-ru { opacity: 0.7; font-size: 16px; }
+    b { color: #5cb85c; }
     """,
 )
 
 
-def generate_deck(lesson_id: int, cards: list[dict]) -> str:
+def generate_deck(lesson_id: int, cards: list[dict], lesson_date: str) -> str:
+    """Generate an Anki deck. lesson_date should be in dd.mm format."""
     os.makedirs(ANKI_OUTPUT_DIR, exist_ok=True)
+
+    deck_name = f"formeta_lesson_{lesson_date}"
 
     deck = genanki.Deck(
         DECK_ID_BASE + lesson_id,
-        f"Formeta — Урок #{lesson_id}",
+        deck_name,
     )
 
     for card in cards:
@@ -61,6 +63,6 @@ def generate_deck(lesson_id: int, cards: list[dict]) -> str:
         )
         deck.add_note(note)
 
-    filepath = os.path.join(ANKI_OUTPUT_DIR, f"formeta_lesson_{lesson_id}.apkg")
+    filepath = os.path.join(ANKI_OUTPUT_DIR, f"{deck_name}.apkg")
     genanki.Package(deck).write_to_file(filepath)
     return filepath

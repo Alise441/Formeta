@@ -39,49 +39,64 @@ def format_card_telegram(card: dict) -> str:
     """Format a card for Telegram MarkdownV2 display."""
     word_type = WORD_TYPE_LABELS.get(card["word_type"], card["word_type"])
     forms = card.get("forms", {})
-    examples = card.get("examples", [])
+    example = card.get("example", {})
+    prepositions = card.get("prepositions", [])
 
-    lines = [f"*{_escape_md(card['base_form'])}* \\({_escape_md(word_type)}\\)"]
+    # Header: word — translation
+    lines = [
+        f"*{_escape_md(card['base_form'])}* — {_escape_md(card['translation'])}"
+    ]
+
+    # Example sentence with translation
+    if example and example.get("de"):
+        lines.append(f"{_escape_md(example['de'])}")
+        if example.get("ru"):
+            lines.append(f"— {_escape_md(example['ru'])}")
+
     lines.append("━━━━━━━━━━━━━━━━━")
 
-    # Forms
+    # Part of speech
+    lines.append(_escape_md(word_type.capitalize()))
+
+    # Forms (no labels)
     if card["word_type"] == "verb":
         form_parts = []
+        if forms.get("prasens_3p"):
+            form_parts.append(forms["prasens_3p"])
         if forms.get("prateritum"):
             form_parts.append(forms["prateritum"])
         if forms.get("perfekt"):
             form_parts.append(forms["perfekt"])
         if form_parts:
-            lines.append(f"Формы: {_escape_md(' — '.join(form_parts))}")
-        if forms.get("rektion"):
-            lines.append(f"Управление: {_escape_md(forms['rektion'])}")
+            lines.append(_escape_md(" — ".join(form_parts)))
     elif card["word_type"] == "noun":
         noun_parts = []
-        if forms.get("artikel"):
-            noun_parts.append(f"Артикль: {forms['artikel']}")
         if forms.get("plural"):
-            noun_parts.append(f"Pl\\. {_escape_md(forms['plural'])}")
+            noun_parts.append(forms["plural"])
         if forms.get("genitiv"):
-            noun_parts.append(f"Gen\\. {_escape_md(forms['genitiv'])}")
-        lines.extend(noun_parts)
+            noun_parts.append(forms["genitiv"])
+        if noun_parts:
+            lines.append(_escape_md(", ".join(noun_parts)))
     elif card["word_type"] == "adjective":
+        adj_parts = []
         if forms.get("komparativ"):
-            lines.append(f"Сравн\\.: {_escape_md(forms['komparativ'])}")
+            adj_parts.append(forms["komparativ"])
         if forms.get("superlativ"):
-            lines.append(f"Превосх\\.: {_escape_md(forms['superlativ'])}")
-        if forms.get("rektion"):
-            lines.append(f"Управление: {_escape_md(forms['rektion'])}")
+            adj_parts.append(forms["superlativ"])
+        if adj_parts:
+            lines.append(_escape_md(" — ".join(adj_parts)))
     elif card["word_type"] == "preposition":
         if forms.get("kasus"):
-            lines.append(f"Падеж: {_escape_md(forms['kasus'])}")
+            lines.append(_escape_md(f"+ {forms['kasus']}"))
 
-    lines.append(f"Перевод: {_escape_md(card['translation'])}")
-
-    if examples:
-        lines.append("")
-        lines.append("Примеры:")
-        for ex in examples:
-            lines.append(f" \\- {_escape_md(ex)}")
+    # Prepositions / governance
+    for prep in prepositions:
+        usage = prep.get("usage", "")
+        meaning = prep.get("meaning", "")
+        if usage and meaning:
+            lines.append(_escape_md(f"{usage} — {meaning}"))
+        elif usage:
+            lines.append(_escape_md(usage))
 
     return "\n".join(lines)
 
@@ -90,28 +105,29 @@ def format_card_anki_front(card: dict) -> str:
     """Format card front side for Anki (HTML)."""
     word_type = WORD_TYPE_LABELS.get(card["word_type"], card["word_type"])
     forms = card.get("forms", {})
+    prepositions = card.get("prepositions", [])
 
     lines = [f"<h2>{card['base_form']}</h2>"]
-    lines.append(f"<i>({word_type})</i>")
+    lines.append(f"<i>{word_type.capitalize()}</i>")
 
     if card["word_type"] == "verb":
         form_parts = []
+        if forms.get("prasens_3p"):
+            form_parts.append(forms["prasens_3p"])
         if forms.get("prateritum"):
             form_parts.append(forms["prateritum"])
         if forms.get("perfekt"):
             form_parts.append(forms["perfekt"])
         if form_parts:
             lines.append(f"<p>{' — '.join(form_parts)}</p>")
-        if forms.get("rektion"):
-            lines.append(f"<p>{forms['rektion']}</p>")
     elif card["word_type"] == "noun":
         parts = []
         if forms.get("plural"):
-            parts.append(f"Pl. {forms['plural']}")
+            parts.append(forms["plural"])
         if forms.get("genitiv"):
-            parts.append(f"Gen. {forms['genitiv']}")
+            parts.append(forms["genitiv"])
         if parts:
-            lines.append(f"<p>{' | '.join(parts)}</p>")
+            lines.append(f"<p>{', '.join(parts)}</p>")
     elif card["word_type"] == "adjective":
         parts = []
         if forms.get("komparativ"):
@@ -120,27 +136,31 @@ def format_card_anki_front(card: dict) -> str:
             parts.append(forms["superlativ"])
         if parts:
             lines.append(f"<p>{' — '.join(parts)}</p>")
-        if forms.get("rektion"):
-            lines.append(f"<p>{forms['rektion']}</p>")
     elif card["word_type"] == "preposition":
         if forms.get("kasus"):
             lines.append(f"<p>+ {forms['kasus']}</p>")
+
+    for prep in prepositions:
+        usage = prep.get("usage", "")
+        meaning = prep.get("meaning", "")
+        if usage and meaning:
+            lines.append(f"<p class='prep'>{usage} — {meaning}</p>")
+        elif usage:
+            lines.append(f"<p class='prep'>{usage}</p>")
 
     return "\n".join(lines)
 
 
 def format_card_anki_back(card: dict) -> str:
-    """Format card back side for Anki (HTML). Bold markers **word** → <b>word</b>."""
-    examples = card.get("examples", [])
+    """Format card back side for Anki (HTML)."""
+    example = card.get("example", {})
 
     lines = [f"<h3>{card['translation']}</h3>"]
 
-    if examples:
-        lines.append("<ul>")
-        for ex in examples:
-            # Convert **word** to <b>word</b>
-            ex_html = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", ex)
-            lines.append(f"<li>{ex_html}</li>")
-        lines.append("</ul>")
+    if example and example.get("de"):
+        ex_html = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", example["de"])
+        lines.append(f"<p class='example'>{ex_html}</p>")
+        if example.get("ru"):
+            lines.append(f"<p class='example-ru'>— {example['ru']}</p>")
 
     return "\n".join(lines)

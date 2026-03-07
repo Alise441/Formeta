@@ -79,9 +79,16 @@ async def create_card(
     word_type: str,
     forms: dict | None,
     translation: str,
-    examples: list[str] | None,
-    created_by: str | None,
+    example: dict | None = None,
+    prepositions: list | None = None,
+    created_by: str | None = None,
 ) -> int:
+    # Pack example + prepositions into the examples column as JSON
+    extra = {}
+    if example:
+        extra["example"] = example
+    if prepositions:
+        extra["prepositions"] = prepositions
     async with _connect() as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
@@ -95,12 +102,27 @@ async def create_card(
                 word_type,
                 json.dumps(forms, ensure_ascii=False) if forms else None,
                 translation,
-                json.dumps(examples, ensure_ascii=False) if examples else None,
+                json.dumps(extra, ensure_ascii=False) if extra else None,
                 created_by,
             ),
         )
         await db.commit()
         return cursor.lastrowid
+
+
+def _parse_card(row) -> dict:
+    card = dict(row)
+    card["forms"] = json.loads(card["forms"]) if card["forms"] else {}
+    extra = json.loads(card["examples"]) if card["examples"] else {}
+    # Support both old format (list) and new format (dict with example/prepositions)
+    if isinstance(extra, list):
+        card["example"] = {}
+        card["prepositions"] = []
+    else:
+        card["example"] = extra.get("example", {})
+        card["prepositions"] = extra.get("prepositions", [])
+    del card["examples"]
+    return card
 
 
 async def get_card(card_id: int) -> dict | None:
@@ -110,10 +132,7 @@ async def get_card(card_id: int) -> dict | None:
         row = await cursor.fetchone()
         if not row:
             return None
-        card = dict(row)
-        card["forms"] = json.loads(card["forms"]) if card["forms"] else {}
-        card["examples"] = json.loads(card["examples"]) if card["examples"] else []
-        return card
+        return _parse_card(row)
 
 
 async def get_lesson_cards(lesson_id: int) -> list[dict]:
@@ -123,13 +142,7 @@ async def get_lesson_cards(lesson_id: int) -> list[dict]:
             "SELECT * FROM cards WHERE lesson_id = ? ORDER BY id", (lesson_id,)
         )
         rows = await cursor.fetchall()
-        cards = []
-        for row in rows:
-            card = dict(row)
-            card["forms"] = json.loads(card["forms"]) if card["forms"] else {}
-            card["examples"] = json.loads(card["examples"]) if card["examples"] else []
-            cards.append(card)
-        return cards
+        return [_parse_card(row) for row in rows]
 
 
 async def update_card_translation(card_id: int, translation: str):

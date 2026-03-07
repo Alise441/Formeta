@@ -11,22 +11,24 @@ SYSTEM_PROMPT = """\
 1. Определить базовую форму (инфинитив для глаголов, именительный падеж ед.ч. с артиклем для существительных и т.д.)
 2. Определить часть речи (word_type): verb, noun, adjective, adverb, phrase, preposition
 3. Сгенерировать грамматические формы в зависимости от части речи:
-   - verb: prasens_3p (er/sie/es форма), prateritum, perfekt, rektion (управление, если есть)
+   - verb: prasens_3p (er/sie/es форма), prateritum, perfekt. Также заполни поле "prepositions" — список предлогов с управлением и кратким значением. Если у глагола нет предложного управления, верни пустой список.
    - noun: artikel (der/die/das), plural, genitiv (напр. des Hauses)
-   - adjective: komparativ, superlativ, rektion (если есть, напр. stolz auf + Akk)
+   - adjective: komparativ, superlativ. Если есть управление (напр. stolz auf + Akk), добавь в "prepositions".
    - adverb: без дополнительных форм
-   - phrase: без отдельных форм, только перевод
+   - phrase: без отдельных форм
    - preposition: kasus (какой падеж требует: Akk, Dat, Gen)
 4. Перевод на русский язык (краткий, 1-3 значения)
-5. 2-3 примера предложений уровня A2-B1. В каждом примере выдели целевое слово двойными звёздочками (**слово**). Если слово стоит в изменённой форме, выделяй именно ту форму, в которой оно стоит в предложении.
+5. ОДИН пример предложения уровня A2-B1 с переводом на русский. Выдели целевое слово двойными звёздочками (**слово**).
 
 Ответь ТОЛЬКО валидным JSON без markdown-блоков, в таком формате:
 {
   "base_form": "...",
   "word_type": "verb|noun|adjective|adverb|phrase|preposition",
   "forms": { ... },
+  "prepositions": [{"usage": "...", "meaning": "..."}],
   "translation": "...",
-  "examples": ["...", "...", "..."]
+  "example_de": "...",
+  "example_ru": "..."
 }
 
 Примеры:
@@ -38,15 +40,15 @@ SYSTEM_PROMPT = """\
   "forms": {
     "prasens_3p": "läuft",
     "prateritum": "lief",
-    "perfekt": "ist gelaufen",
-    "rektion": null
+    "perfekt": "ist gelaufen"
   },
+  "prepositions": [
+    {"usage": "laufen + auf (Akk)", "meaning": "бежать куда-то"},
+    {"usage": "laufen + mit (Dat)", "meaning": "идти с кем-то"}
+  ],
   "translation": "бежать, бегать; идти (пешком)",
-  "examples": [
-    "Er **läuft** jeden Morgen im Park.",
-    "Sie ist gestern zur Schule **gelaufen**.",
-    "Die Zeit **läuft** schnell."
-  ]
+  "example_de": "**Läuft** dein Computer noch?",
+  "example_ru": "Твой компьютер ещё работает?"
 }
 
 Ввод: "die Häuser"
@@ -58,12 +60,10 @@ SYSTEM_PROMPT = """\
     "plural": "die Häuser",
     "genitiv": "des Hauses"
   },
+  "prepositions": [],
   "translation": "дом",
-  "examples": [
-    "Das **Haus** steht am Ende der Straße.",
-    "In diesem **Haus** wohnen viele Familien.",
-    "Wir haben ein neues **Haus** gekauft."
-  ]
+  "example_de": "In diesem **Haus** wohnen viele Familien.",
+  "example_ru": "В этом доме живёт много семей."
 }
 
 Ввод: "es geht um"
@@ -71,12 +71,26 @@ SYSTEM_PROMPT = """\
   "base_form": "es geht um + Akk",
   "word_type": "phrase",
   "forms": {},
+  "prepositions": [],
   "translation": "речь идёт о...",
-  "examples": [
-    "In dem Film **geht es um** eine Liebesgeschichte.",
-    "Worum **geht es** in diesem Buch?",
-    "**Es geht** hier **um** ein wichtiges Thema."
-  ]
+  "example_de": "In dem Film **geht es um** eine Liebesgeschichte.",
+  "example_ru": "В этом фильме речь идёт о любовной истории."
+}
+
+Ввод: "stolz"
+{
+  "base_form": "stolz",
+  "word_type": "adjective",
+  "forms": {
+    "komparativ": "stolzer",
+    "superlativ": "am stolzesten"
+  },
+  "prepositions": [
+    {"usage": "stolz + auf (Akk)", "meaning": "гордиться кем/чем-то"}
+  ],
+  "translation": "гордый",
+  "example_de": "Sie ist **stolz** auf ihren Sohn.",
+  "example_ru": "Она гордится своим сыном."
 }
 """
 
