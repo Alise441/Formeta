@@ -145,11 +145,33 @@ async def get_lesson_cards(lesson_id: int) -> list[dict]:
         return [_parse_card(row) for row in rows]
 
 
-async def update_card_translation(card_id: int, translation: str):
+async def update_card_full(
+    card_id: int,
+    base_form: str,
+    word_type: str,
+    forms: dict | None,
+    translation: str,
+    example: dict | None = None,
+    prepositions: list | None = None,
+):
+    extra = {}
+    if example:
+        extra["example"] = example
+    if prepositions:
+        extra["prepositions"] = prepositions
     async with _connect() as db:
         db.row_factory = aiosqlite.Row
         await db.execute(
-            "UPDATE cards SET translation = ? WHERE id = ?", (translation, card_id)
+            """UPDATE cards SET base_form = ?, word_type = ?, forms = ?,
+               translation = ?, examples = ? WHERE id = ?""",
+            (
+                base_form,
+                word_type,
+                json.dumps(forms, ensure_ascii=False) if forms else None,
+                translation,
+                json.dumps(extra, ensure_ascii=False) if extra else None,
+                card_id,
+            ),
         )
         await db.commit()
 

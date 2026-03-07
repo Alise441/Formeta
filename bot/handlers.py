@@ -7,9 +7,9 @@ from config import ALLOWED_USER_IDS
 from db import repository as repo
 from services.llm import analyze_word
 from services.anki import generate_deck
-from bot.formatters import format_card_telegram
+from bot.formatters import format_card_telegram, format_card_editable, parse_card_editable
 from bot.keyboards import (
-    BTN_START_LESSON, BTN_END_LESSON, BTN_EXPORT, BTN_RESUME, BTN_HISTORY,
+    BTN_START_LESSON, BTN_END_LESSON, BTN_EXPORT, BTN_RESUME, BTN_HISTORY, BTN_WORDS,
     idle_keyboard, lesson_active_keyboard, lesson_ended_keyboard,
     card_inline_keyboard, confirm_delete_keyboard,
 )
@@ -154,6 +154,24 @@ async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 @authorized
+async def handle_words(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lesson = await repo.get_active_lesson()
+    if not lesson:
+        await update.message.reply_text(
+            "Нет активного урока.", reply_markup=idle_keyboard()
+        )
+        return
+    cards = await repo.get_lesson_cards(lesson["id"])
+    if not cards:
+        await update.message.reply_text("В уроке пока нет слов.")
+        return
+    lines = [f"{_lesson_date(lesson)} — {len(cards)} слов:\n"]
+    for c in cards:
+        lines.append(f"  {c['base_form']} — {c['translation']}")
+    await update.message.reply_text("\n".join(lines))
+
+
+@authorized
 async def handle_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lesson = await repo.get_active_lesson()
     if not lesson:
@@ -240,8 +258,7 @@ async def callback_edit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("Карточка не найдена.")
         return
     await query.message.reply_text(
-        f"Текущий перевод: {card['translation']}\n\n"
-        "Отправьте новый перевод:",
+        "Скопируйте текст карточки выше, отредактируйте и отправьте обратно.",
     )
 
 
@@ -250,13 +267,21 @@ async def handle_edit_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     card_id = context.user_data.get("editing_card_id")
     if not card_id:
         return False
-    new_translation = update.message.text.strip()
-    await repo.update_card_translation(card_id, new_translation)
+    parsed = parse_card_editable(update.message.text)
+    await repo.update_card_full(
+        card_id=card_id,
+        base_form=parsed["base_form"],
+        word_type=parsed["word_type"],
+        forms=parsed["forms"],
+        translation=parsed["translation"],
+        example=parsed.get("example"),
+        prepositions=parsed.get("prepositions", []),
+    )
     context.user_data.pop("editing_card_id", None)
     card = await repo.get_card(card_id)
     formatted = format_card_telegram(card)
     await update.message.reply_text(
-        f"Перевод обновлён!\n\n{formatted}",
+        f"Карточка обновлена\\!\n\n{formatted}",
         parse_mode="MarkdownV2",
         reply_markup=card_inline_keyboard(card_id),
     )

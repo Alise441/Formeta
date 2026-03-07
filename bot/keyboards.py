@@ -6,6 +6,7 @@ BTN_END_LESSON = "Завершить урок"
 BTN_EXPORT = "Экспорт в Anki"
 BTN_RESUME = "Возобновить урок"
 BTN_HISTORY = "История"
+BTN_WORDS = "Слова урока"
 
 
 def idle_keyboard() -> ReplyKeyboardMarkup:
@@ -17,7 +18,7 @@ def idle_keyboard() -> ReplyKeyboardMarkup:
 
 def lesson_active_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        [[BTN_END_LESSON]],
+        [[BTN_WORDS, BTN_END_LESSON]],
         resize_keyboard=True,
     )
 
