@@ -11,7 +11,9 @@ from services.quizlet import generate_quizlet_export
 from bot.formatters import format_card_telegram, format_card_editable, parse_card_editable
 from bot.keyboards import (
     BTN_START_LESSON, BTN_END_LESSON, BTN_EXPORT, BTN_EXPORT_QUIZLET, BTN_RESUME, BTN_HISTORY, BTN_WORDS,
+    BTN_START_SESSION, BTN_END_SESSION, BTN_RESUME_SESSION,
     idle_keyboard, lesson_active_keyboard, lesson_ended_keyboard,
+    session_active_keyboard, session_ended_keyboard,
     card_inline_keyboard, confirm_delete_keyboard,
 )
 
@@ -43,6 +45,18 @@ async def _notify_partner(context, user_id: int, owner_id: int, text: str, parse
             logger.error(f"Failed to notify {target}: {e}")
 
 
+def _is_lesson(lesson: dict) -> bool:
+    return lesson.get("lesson_type", "lesson") == "lesson"
+
+
+def _active_keyboard(lesson: dict):
+    return lesson_active_keyboard() if _is_lesson(lesson) else session_active_keyboard()
+
+
+def _ended_keyboard(lesson: dict):
+    return lesson_ended_keyboard() if _is_lesson(lesson) else session_ended_keyboard()
+
+
 def _lesson_date(lesson: dict) -> str:
     """Format lesson started_at as dd.mm.yyyy."""
     ts = lesson.get("started_at", "")
@@ -68,18 +82,19 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     owner_id = get_lesson_owner(uid)
     lesson = await repo.get_active_lesson(owner_id)
     if is_teacher(uid):
-        if lesson:
+        if lesson and _is_lesson(lesson):
             text = f"{_lesson_date(lesson)} Урок активен. Отправляйте слова!"
         else:
             text = "Привет! Сейчас нет активного урока. Вы получите уведомление, когда урок начнётся."
         await update.message.reply_text(text, reply_markup=ReplyKeyboardRemove())
         return
     if lesson:
-        kb = lesson_active_keyboard()
-        text = f"{_lesson_date(lesson)} Урок активен. Отправляйте слова!"
+        kb = _active_keyboard(lesson)
+        label = "Урок" if _is_lesson(lesson) else "Сессия"
+        text = f"{_lesson_date(lesson)} {label} активен. Отправляйте слова!"
     else:
         kb = idle_keyboard()
-        text = "Привет! Нажмите «Начать урок», чтобы начать записывать слова."
+        text = "Привет! Нажмите «Начать урок» или «Начать сессию»."
     await update.message.reply_text(text, reply_markup=kb)
 
 
@@ -88,12 +103,13 @@ async def handle_start_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE
     owner_id = get_lesson_owner(update.effective_user.id)
     active = await repo.get_active_lesson(owner_id)
     if active:
+        label = "Урок" if _is_lesson(active) else "Сессия"
         await update.message.reply_text(
-            f"{_lesson_date(active)} Урок уже идёт. Отправляйте слова!",
-            reply_markup=lesson_active_keyboard(),
+            f"{_lesson_date(active)} {label} уже идёт. Отправляйте слова!",
+            reply_markup=_active_keyboard(active),
         )
         return
-    lesson_id = await repo.create_lesson(owner_id)
+    lesson_id = await repo.create_lesson(owner_id, "lesson")
     lesson = await repo.get_active_lesson(owner_id)
     await update.message.reply_text(
         f"{_lesson_date(lesson)} Урок начат! Отправляйте немецкие слова или фразы.",
@@ -101,6 +117,25 @@ async def handle_start_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
     await _notify_teachers(context, owner_id,
         f"{_lesson_date(lesson)} Урок начался! Отправляйте слова.")
+
+
+@authorized
+async def handle_start_session(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    owner_id = update.effective_user.id
+    active = await repo.get_active_lesson(owner_id)
+    if active:
+        label = "Урок" if _is_lesson(active) else "Сессия"
+        await update.message.reply_text(
+            f"{_lesson_date(active)} {label} уже идёт. Отправляйте слова!",
+            reply_markup=_active_keyboard(active),
+        )
+        return
+    lesson_id = await repo.create_lesson(owner_id, "session")
+    lesson = await repo.get_active_lesson(owner_id)
+    await update.message.reply_text(
+        f"{_lesson_date(lesson)} Сессия начата! Отправляйте немецкие слова или фразы.",
+        reply_markup=session_active_keyboard(),
+    )
 
 
 @authorized
@@ -114,29 +149,40 @@ async def handle_end_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     date = _lesson_date(lesson)
     lesson_id = lesson["id"]
+    is_lt = _is_lesson(lesson)
     await repo.end_lesson(lesson_id)
     count = await repo.count_lesson_cards(lesson_id)
     cards = await repo.get_lesson_cards(lesson_id)
     word_list = ", ".join(c["base_form"] for c in cards) if cards else "—"
+    label = "Урок" if is_lt else "Сессия"
     await update.message.reply_text(
-        f"{date} Урок завершён!\n"
+        f"{date} {label} завершён!\n"
         f"Слов: {count}\n"
         f"Слова: {word_list}\n\n"
         f"Нажмите «Экспорт в Anki» для генерации колоды.",
-        reply_markup=lesson_ended_keyboard(),
+        reply_markup=_ended_keyboard(lesson),
     )
-    await _notify_teachers(context, owner_id,
-        f"{date} Урок завершён!\nСлов: {count}\nСлова: {word_list}")
+    if is_lt:
+        await _notify_teachers(context, owner_id,
+            f"{date} Урок завершён!\nСлов: {count}\nСлова: {word_list}")
 
 
 @authorized
 async def handle_resume_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE):
     owner_id = get_lesson_owner(update.effective_user.id)
-    lesson = await repo.get_last_ended_lesson(owner_id)
+    lesson = await repo.get_last_ended_lesson(owner_id, "lesson")
     if not lesson:
         await update.message.reply_text(
             "Нет завершённых уроков для возобновления.",
             reply_markup=idle_keyboard(),
+        )
+        return
+    active = await repo.get_active_lesson(owner_id)
+    if active:
+        label = "Урок" if _is_lesson(active) else "Сессия"
+        await update.message.reply_text(
+            f"{_lesson_date(active)} {label} уже идёт. Сначала завершите.",
+            reply_markup=_active_keyboard(active),
         )
         return
     await repo.resume_lesson(lesson["id"])
@@ -146,6 +192,31 @@ async def handle_resume_lesson(update: Update, context: ContextTypes.DEFAULT_TYP
     )
     await _notify_teachers(context, owner_id,
         f"{_lesson_date(lesson)} Урок возобновлён! Отправляйте слова.")
+
+
+@authorized
+async def handle_resume_session(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    owner_id = update.effective_user.id
+    lesson = await repo.get_last_ended_lesson(owner_id, "session")
+    if not lesson:
+        await update.message.reply_text(
+            "Нет завершённых сессий для возобновления.",
+            reply_markup=idle_keyboard(),
+        )
+        return
+    active = await repo.get_active_lesson(owner_id)
+    if active:
+        label = "Урок" if _is_lesson(active) else "Сессия"
+        await update.message.reply_text(
+            f"{_lesson_date(active)} {label} уже идёт. Сначала завершите.",
+            reply_markup=_active_keyboard(active),
+        )
+        return
+    await repo.resume_lesson(lesson["id"])
+    await update.message.reply_text(
+        f"{_lesson_date(lesson)} Сессия возобновлена! Отправляйте слова.",
+        reply_markup=session_active_keyboard(),
+    )
 
 
 @authorized
@@ -219,12 +290,13 @@ async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not lessons:
         await update.message.reply_text("Уроков пока нет.")
         return
-    lines = ["Последние уроки:\n"]
+    lines = ["Последние уроки/сессии:\n"]
     for lesson in lessons:
         count = await repo.count_lesson_cards(lesson["id"])
         status = "активен" if lesson["status"] == "active" else "завершён"
         date = _lesson_date(lesson)
-        lines.append(f"#{lesson['id']} {date} — {count} слов — {status}")
+        lt = "урок" if _is_lesson(lesson) else "сессия"
+        lines.append(f"#{lesson['id']} {date} — {lt} — {count} слов — {status}")
     await update.message.reply_text("\n".join(lines))
 
 
@@ -252,7 +324,7 @@ async def handle_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     owner_id = get_lesson_owner(user_id)
     lesson = await repo.get_active_lesson(owner_id)
-    if not lesson:
+    if not lesson or (is_teacher(user_id) and not _is_lesson(lesson)):
         if is_teacher(user_id):
             await update.message.reply_text(
                 "Сейчас нет активного урока. Вы получите уведомление, когда урок начнётся.")
@@ -304,9 +376,10 @@ async def handle_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=card_inline_keyboard(card_id),
     )
 
-    await _notify_partner(context, user_id, owner_id,
-        text=formatted, parse_mode="MarkdownV2",
-        reply_markup=card_inline_keyboard(card_id))
+    if _is_lesson(lesson):
+        await _notify_partner(context, user_id, owner_id,
+            text=formatted, parse_mode="MarkdownV2",
+            reply_markup=card_inline_keyboard(card_id))
 
 
 async def callback_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -373,9 +446,12 @@ async def handle_edit_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="MarkdownV2",
         reply_markup=card_inline_keyboard(card_id),
     )
-    user_id = update.effective_user.id
-    owner_id = get_lesson_owner(user_id)
-    await _notify_partner(context, user_id, owner_id,
-        text=updated_text, parse_mode="MarkdownV2",
-        reply_markup=card_inline_keyboard(card_id))
+    # Notify partner only for lessons (not sessions)
+    lesson = await repo.get_lesson_by_card(card_id)
+    if lesson and _is_lesson(lesson):
+        user_id = update.effective_user.id
+        owner_id = get_lesson_owner(user_id)
+        await _notify_partner(context, user_id, owner_id,
+            text=updated_text, parse_mode="MarkdownV2",
+            reply_markup=card_inline_keyboard(card_id))
     return True

@@ -7,7 +7,8 @@ CREATE TABLE IF NOT EXISTS lessons (
     user_id INTEGER NOT NULL,
     started_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     ended_at TIMESTAMP,
-    status TEXT NOT NULL DEFAULT 'active'
+    status TEXT NOT NULL DEFAULT 'active',
+    lesson_type TEXT NOT NULL DEFAULT 'lesson'
 );
 
 CREATE TABLE IF NOT EXISTS cards (
@@ -30,6 +31,7 @@ async def init_db():
         await db.executescript(SCHEMA)
         await db.commit()
     await _migrate_add_user_id()
+    await _migrate_add_lesson_type()
 
 
 async def _migrate_add_user_id():
@@ -47,5 +49,16 @@ async def _migrate_add_user_id():
             )
             await db.execute(
                 "CREATE INDEX IF NOT EXISTS idx_lessons_user_status ON lessons(user_id, status)"
+            )
+            await db.commit()
+
+
+async def _migrate_add_lesson_type():
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute("PRAGMA table_info(lessons)")
+        columns = [row[1] for row in await cursor.fetchall()]
+        if "lesson_type" not in columns:
+            await db.execute(
+                "ALTER TABLE lessons ADD COLUMN lesson_type TEXT NOT NULL DEFAULT 'lesson'"
             )
             await db.commit()

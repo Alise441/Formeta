@@ -12,12 +12,15 @@ from config import TELEGRAM_BOT_TOKEN, is_teacher
 from db.models import init_db
 from bot.keyboards import (
     BTN_START_LESSON, BTN_END_LESSON, BTN_EXPORT, BTN_EXPORT_QUIZLET, BTN_RESUME, BTN_HISTORY, BTN_WORDS,
+    BTN_START_SESSION, BTN_END_SESSION, BTN_RESUME_SESSION,
 )
 from bot.handlers import (
     cmd_start,
     handle_start_lesson,
+    handle_start_session,
     handle_end_lesson,
     handle_resume_lesson,
+    handle_resume_session,
     handle_export,
     handle_export_quizlet,
     handle_history,
@@ -53,10 +56,13 @@ async def text_router(update, context):
 
     routes = {
         BTN_START_LESSON: handle_start_lesson,
+        BTN_START_SESSION: handle_start_session,
         BTN_END_LESSON: handle_end_lesson,
+        BTN_END_SESSION: handle_end_lesson,
         BTN_EXPORT: handle_export,
         BTN_EXPORT_QUIZLET: handle_export_quizlet,
         BTN_RESUME: handle_resume_lesson,
+        BTN_RESUME_SESSION: handle_resume_session,
         BTN_HISTORY: handle_history,
         BTN_WORDS: handle_words,
     }

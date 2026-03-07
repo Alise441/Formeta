@@ -12,11 +12,12 @@ def _connect():
 
 # --- Lessons ---
 
-async def create_lesson(user_id: int) -> int:
+async def create_lesson(user_id: int, lesson_type: str = "lesson") -> int:
     async with _connect() as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
-            "INSERT INTO lessons (user_id) VALUES (?)", (user_id,)
+            "INSERT INTO lessons (user_id, lesson_type) VALUES (?, ?)",
+            (user_id, lesson_type),
         )
         await db.commit()
         return cursor.lastrowid
@@ -53,13 +54,19 @@ async def resume_lesson(lesson_id: int):
         await db.commit()
 
 
-async def get_last_ended_lesson(user_id: int) -> dict | None:
+async def get_last_ended_lesson(user_id: int, lesson_type: str | None = None) -> dict | None:
     async with _connect() as db:
         db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
-            "SELECT * FROM lessons WHERE status = 'ended' AND user_id = ? ORDER BY ended_at DESC LIMIT 1",
-            (user_id,),
-        )
+        if lesson_type:
+            cursor = await db.execute(
+                "SELECT * FROM lessons WHERE status = 'ended' AND user_id = ? AND lesson_type = ? ORDER BY ended_at DESC LIMIT 1",
+                (user_id, lesson_type),
+            )
+        else:
+            cursor = await db.execute(
+                "SELECT * FROM lessons WHERE status = 'ended' AND user_id = ? ORDER BY ended_at DESC LIMIT 1",
+                (user_id,),
+            )
         row = await cursor.fetchone()
         return dict(row) if row else None
 
@@ -191,6 +198,17 @@ async def delete_card(card_id: int):
         db.row_factory = aiosqlite.Row
         await db.execute("DELETE FROM cards WHERE id = ?", (card_id,))
         await db.commit()
+
+
+async def get_lesson_by_card(card_id: int) -> dict | None:
+    async with _connect() as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT l.* FROM lessons l JOIN cards c ON c.lesson_id = l.id WHERE c.id = ?",
+            (card_id,),
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row else None
 
 
 async def count_lesson_cards(lesson_id: int) -> int:

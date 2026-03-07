@@ -8,11 +8,14 @@ BTN_RESUME = "Возобновить урок"
 BTN_HISTORY = "История"
 BTN_WORDS = "Слова урока"
 BTN_EXPORT_QUIZLET = "Экспорт в Quizlet"
+BTN_START_SESSION = "Начать сессию"
+BTN_END_SESSION = "Завершить сессию"
+BTN_RESUME_SESSION = "Возобновить сессию"
 
 
 def idle_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        [[BTN_START_LESSON], [BTN_HISTORY]],
+        [[BTN_START_LESSON, BTN_START_SESSION], [BTN_HISTORY]],
         resize_keyboard=True,
     )
 
@@ -24,23 +27,23 @@ def lesson_active_keyboard() -> ReplyKeyboardMarkup:
     )
 
 
+def session_active_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        [[BTN_WORDS, BTN_END_SESSION]],
+        resize_keyboard=True,
+    )
+
+
 def lesson_ended_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        [[BTN_EXPORT, BTN_EXPORT_QUIZLET], [BTN_RESUME], [BTN_START_LESSON, BTN_HISTORY]],
+        [[BTN_EXPORT, BTN_EXPORT_QUIZLET], [BTN_RESUME, BTN_HISTORY], [BTN_START_LESSON, BTN_START_SESSION]],
         resize_keyboard=True,
     )
 
 
-def teacher_idle_keyboard() -> ReplyKeyboardMarkup:
+def session_ended_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        [[BTN_START_LESSON]],
-        resize_keyboard=True,
-    )
-
-
-def teacher_lesson_ended_keyboard() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        [[BTN_RESUME], [BTN_START_LESSON]],
+        [[BTN_EXPORT, BTN_EXPORT_QUIZLET], [BTN_RESUME_SESSION, BTN_HISTORY], [BTN_START_LESSON, BTN_START_SESSION]],
         resize_keyboard=True,
     )
 
