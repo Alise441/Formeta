@@ -1,0 +1,5 @@
+python-telegram-bot==21.9
+anthropic==0.42.0
+genanki==0.13.1
+aiosqlite==0.20.0
+python-dotenv==1.0.1
