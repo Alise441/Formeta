@@ -18,7 +18,8 @@ SYSTEM_PROMPT = """\
    - phrase: без отдельных форм
    - preposition: kasus (какой падеж требует: Akk, Dat, Gen)
 4. Перевод на русский язык (краткий, 1-3 значения)
-5. ОДИН пример предложения уровня A2-B1 с переводом на русский. Выдели целевое слово двойными звёздочками (**слово**).
+5. Перевод на английский язык (краткий, 1-3 значения)
+6. ОДИН пример предложения уровня A2-B1 с переводом на русский. Выдели целевое слово двойными звёздочками (**слово**).
 
 Ответь ТОЛЬКО валидным JSON без markdown-блоков, в таком формате:
 {
@@ -27,6 +28,7 @@ SYSTEM_PROMPT = """\
   "forms": { ... },
   "prepositions": [{"usage": "...", "meaning": "..."}],
   "translation": "...",
+  "translation_en": "...",
   "example_de": "...",
   "example_ru": "..."
 }
@@ -47,6 +49,7 @@ SYSTEM_PROMPT = """\
     {"usage": "laufen + mit (Dat)", "meaning": "идти с кем-то"}
   ],
   "translation": "бежать, бегать; идти (пешком)",
+  "translation_en": "to run; to walk",
   "example_de": "**Läuft** dein Computer noch?",
   "example_ru": "Твой компьютер ещё работает?"
 }
@@ -62,6 +65,7 @@ SYSTEM_PROMPT = """\
   },
   "prepositions": [],
   "translation": "дом",
+  "translation_en": "house",
   "example_de": "In diesem **Haus** wohnen viele Familien.",
   "example_ru": "В этом доме живёт много семей."
 }
@@ -73,6 +77,7 @@ SYSTEM_PROMPT = """\
   "forms": {},
   "prepositions": [],
   "translation": "речь идёт о...",
+  "translation_en": "it is about...",
   "example_de": "In dem Film **geht es um** eine Liebesgeschichte.",
   "example_ru": "В этом фильме речь идёт о любовной истории."
 }
@@ -89,6 +94,7 @@ SYSTEM_PROMPT = """\
     {"usage": "stolz + auf (Akk)", "meaning": "гордиться кем/чем-то"}
   ],
   "translation": "гордый",
+  "translation_en": "proud",
   "example_de": "Sie ist **stolz** auf ihren Sohn.",
   "example_ru": "Она гордится своим сыном."
 }

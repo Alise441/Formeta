@@ -7,6 +7,7 @@ BTN_EXPORT = "Экспорт в Anki"
 BTN_RESUME = "Возобновить урок"
 BTN_HISTORY = "История"
 BTN_WORDS = "Слова урока"
+BTN_EXPORT_QUIZLET = "Экспорт в Quizlet"
 
 
 def idle_keyboard() -> ReplyKeyboardMarkup:
@@ -25,7 +26,7 @@ def lesson_active_keyboard() -> ReplyKeyboardMarkup:
 
 def lesson_ended_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        [[BTN_EXPORT, BTN_RESUME], [BTN_START_LESSON, BTN_HISTORY]],
+        [[BTN_EXPORT, BTN_EXPORT_QUIZLET], [BTN_RESUME], [BTN_START_LESSON, BTN_HISTORY]],
         resize_keyboard=True,
     )
 

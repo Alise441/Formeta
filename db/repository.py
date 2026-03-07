@@ -79,16 +79,19 @@ async def create_card(
     word_type: str,
     forms: dict | None,
     translation: str,
+    translation_en: str = "",
     example: dict | None = None,
     prepositions: list | None = None,
     created_by: str | None = None,
 ) -> int:
-    # Pack example + prepositions into the examples column as JSON
+    # Pack example + prepositions + translation_en into the examples column as JSON
     extra = {}
     if example:
         extra["example"] = example
     if prepositions:
         extra["prepositions"] = prepositions
+    if translation_en:
+        extra["translation_en"] = translation_en
     async with _connect() as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
@@ -118,9 +121,11 @@ def _parse_card(row) -> dict:
     if isinstance(extra, list):
         card["example"] = {}
         card["prepositions"] = []
+        card["translation_en"] = ""
     else:
         card["example"] = extra.get("example", {})
         card["prepositions"] = extra.get("prepositions", [])
+        card["translation_en"] = extra.get("translation_en", "")
     del card["examples"]
     return card
 

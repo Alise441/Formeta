@@ -11,7 +11,7 @@ from telegram.ext import (
 from config import TELEGRAM_BOT_TOKEN
 from db.models import init_db
 from bot.keyboards import (
-    BTN_START_LESSON, BTN_END_LESSON, BTN_EXPORT, BTN_RESUME, BTN_HISTORY, BTN_WORDS,
+    BTN_START_LESSON, BTN_END_LESSON, BTN_EXPORT, BTN_EXPORT_QUIZLET, BTN_RESUME, BTN_HISTORY, BTN_WORDS,
 )
 from bot.handlers import (
     cmd_start,
@@ -19,6 +19,7 @@ from bot.handlers import (
     handle_end_lesson,
     handle_resume_lesson,
     handle_export,
+    handle_export_quizlet,
     handle_history,
     handle_words,
     handle_word,
@@ -49,6 +50,7 @@ async def text_router(update, context):
         BTN_START_LESSON: handle_start_lesson,
         BTN_END_LESSON: handle_end_lesson,
         BTN_EXPORT: handle_export,
+        BTN_EXPORT_QUIZLET: handle_export_quizlet,
         BTN_RESUME: handle_resume_lesson,
         BTN_HISTORY: handle_history,
         BTN_WORDS: handle_words,

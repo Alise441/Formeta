@@ -7,9 +7,10 @@ from config import ALLOWED_USER_IDS
 from db import repository as repo
 from services.llm import analyze_word
 from services.anki import generate_deck
+from services.quizlet import generate_quizlet_export
 from bot.formatters import format_card_telegram, format_card_editable, parse_card_editable
 from bot.keyboards import (
-    BTN_START_LESSON, BTN_END_LESSON, BTN_EXPORT, BTN_RESUME, BTN_HISTORY, BTN_WORDS,
+    BTN_START_LESSON, BTN_END_LESSON, BTN_EXPORT, BTN_EXPORT_QUIZLET, BTN_RESUME, BTN_HISTORY, BTN_WORDS,
     idle_keyboard, lesson_active_keyboard, lesson_ended_keyboard,
     card_inline_keyboard, confirm_delete_keyboard,
 )
@@ -121,20 +122,48 @@ async def handle_export(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("В уроке нет карточек.")
         return
     await update.message.reply_text("Генерирую колоду...")
-    # Format lesson date as dd.mm
-    date_str = lesson["started_at"][:10] if lesson["started_at"] else ""
-    if date_str:
-        # started_at is ISO format: YYYY-MM-DD...
-        parts = date_str.split("-")
-        lesson_date = f"{parts[2]}.{parts[1]}"
-    else:
-        lesson_date = str(lesson["id"])
+    lesson_date = _get_lesson_date_short(lesson)
     filepath = generate_deck(lesson["id"], cards, lesson_date)
     filename = f"formeta_lesson_{lesson_date}.apkg"
     await update.message.reply_document(
         document=open(filepath, "rb"),
         filename=filename,
         caption=f"Anki-колода за {lesson_date} ({len(cards)} карточек)",
+    )
+
+
+def _get_lesson_date_short(lesson: dict) -> str:
+    """Format lesson started_at as dd.mm for filenames."""
+    ts = lesson.get("started_at", "")
+    if ts and len(ts) >= 10:
+        parts = ts[:10].split("-")
+        return f"{parts[2]}.{parts[1]}"
+    return str(lesson["id"])
+
+
+@authorized
+async def handle_export_quizlet(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lesson = await repo.get_last_ended_lesson()
+    if not lesson:
+        active = await repo.get_active_lesson()
+        if active:
+            lesson = active
+        else:
+            await update.message.reply_text(
+                "Нет уроков для экспорта.", reply_markup=idle_keyboard()
+            )
+            return
+    cards = await repo.get_lesson_cards(lesson["id"])
+    if not cards:
+        await update.message.reply_text("В уроке нет карточек.")
+        return
+    lesson_date = _get_lesson_date_short(lesson)
+    filepath = generate_quizlet_export(lesson["id"], cards, lesson_date)
+    await update.message.reply_document(
+        document=open(filepath, "rb"),
+        filename=f"formeta_quizlet_{lesson_date}.txt",
+        caption=f"Quizlet-экспорт за {lesson_date} ({len(cards)} карточек)\n"
+                "Откройте Quizlet → Import → вставьте содержимое файла",
     )
 
 
@@ -208,6 +237,7 @@ async def handle_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
         word_type=data["word_type"],
         forms=data.get("forms"),
         translation=data["translation"],
+        translation_en=data.get("translation_en", ""),
         example=example,
         prepositions=data.get("prepositions", []),
         created_by=update.effective_user.username or str(update.effective_user.id),
