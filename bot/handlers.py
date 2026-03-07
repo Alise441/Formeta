@@ -39,7 +39,8 @@ def authorized(func):
 
 @authorized
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lesson = await repo.get_active_lesson()
+    user_id = update.effective_user.id
+    lesson = await repo.get_active_lesson(user_id)
     if lesson:
         kb = lesson_active_keyboard()
         text = f"{_lesson_date(lesson)} Урок активен. Отправляйте слова!"
@@ -51,15 +52,16 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @authorized
 async def handle_start_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    active = await repo.get_active_lesson()
+    user_id = update.effective_user.id
+    active = await repo.get_active_lesson(user_id)
     if active:
         await update.message.reply_text(
             f"{_lesson_date(active)} Урок уже идёт. Отправляйте слова!",
             reply_markup=lesson_active_keyboard(),
         )
         return
-    lesson_id = await repo.create_lesson()
-    lesson = await repo.get_active_lesson()
+    lesson_id = await repo.create_lesson(user_id)
+    lesson = await repo.get_active_lesson(user_id)
     await update.message.reply_text(
         f"{_lesson_date(lesson)} Урок начат! Отправляйте немецкие слова или фразы.",
         reply_markup=lesson_active_keyboard(),
@@ -68,7 +70,8 @@ async def handle_start_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 @authorized
 async def handle_end_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lesson = await repo.get_active_lesson()
+    user_id = update.effective_user.id
+    lesson = await repo.get_active_lesson(user_id)
     if not lesson:
         await update.message.reply_text(
             "Нет активного урока.", reply_markup=idle_keyboard()
@@ -91,7 +94,8 @@ async def handle_end_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @authorized
 async def handle_resume_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lesson = await repo.get_last_ended_lesson()
+    user_id = update.effective_user.id
+    lesson = await repo.get_last_ended_lesson(user_id)
     if not lesson:
         await update.message.reply_text(
             "Нет завершённых уроков для возобновления.",
@@ -107,9 +111,10 @@ async def handle_resume_lesson(update: Update, context: ContextTypes.DEFAULT_TYP
 
 @authorized
 async def handle_export(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lesson = await repo.get_last_ended_lesson()
+    user_id = update.effective_user.id
+    lesson = await repo.get_last_ended_lesson(user_id)
     if not lesson:
-        active = await repo.get_active_lesson()
+        active = await repo.get_active_lesson(user_id)
         if active:
             lesson = active
         else:
@@ -143,9 +148,10 @@ def _get_lesson_date_short(lesson: dict) -> str:
 
 @authorized
 async def handle_export_quizlet(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lesson = await repo.get_last_ended_lesson()
+    user_id = update.effective_user.id
+    lesson = await repo.get_last_ended_lesson(user_id)
     if not lesson:
-        active = await repo.get_active_lesson()
+        active = await repo.get_active_lesson(user_id)
         if active:
             lesson = active
         else:
@@ -169,7 +175,8 @@ async def handle_export_quizlet(update: Update, context: ContextTypes.DEFAULT_TY
 
 @authorized
 async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lessons = await repo.get_recent_lessons(10)
+    user_id = update.effective_user.id
+    lessons = await repo.get_recent_lessons(user_id, 10)
     if not lessons:
         await update.message.reply_text("Уроков пока нет.")
         return
@@ -184,7 +191,8 @@ async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @authorized
 async def handle_words(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lesson = await repo.get_active_lesson()
+    user_id = update.effective_user.id
+    lesson = await repo.get_active_lesson(user_id)
     if not lesson:
         await update.message.reply_text(
             "Нет активного урока.", reply_markup=idle_keyboard()
@@ -202,7 +210,8 @@ async def handle_words(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @authorized
 async def handle_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    lesson = await repo.get_active_lesson()
+    user_id = update.effective_user.id
+    lesson = await repo.get_active_lesson(user_id)
     if not lesson:
         await update.message.reply_text(
             "Сейчас нет активного урока. Нажмите «Начать урок».",

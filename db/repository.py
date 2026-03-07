@@ -12,19 +12,22 @@ def _connect():
 
 # --- Lessons ---
 
-async def create_lesson() -> int:
+async def create_lesson(user_id: int) -> int:
     async with _connect() as db:
         db.row_factory = aiosqlite.Row
-        cursor = await db.execute("INSERT INTO lessons DEFAULT VALUES")
+        cursor = await db.execute(
+            "INSERT INTO lessons (user_id) VALUES (?)", (user_id,)
+        )
         await db.commit()
         return cursor.lastrowid
 
 
-async def get_active_lesson() -> dict | None:
+async def get_active_lesson(user_id: int) -> dict | None:
     async with _connect() as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
-            "SELECT * FROM lessons WHERE status = 'active' ORDER BY id DESC LIMIT 1"
+            "SELECT * FROM lessons WHERE status = 'active' AND user_id = ? ORDER BY id DESC LIMIT 1",
+            (user_id,),
         )
         row = await cursor.fetchone()
         return dict(row) if row else None
@@ -50,21 +53,23 @@ async def resume_lesson(lesson_id: int):
         await db.commit()
 
 
-async def get_last_ended_lesson() -> dict | None:
+async def get_last_ended_lesson(user_id: int) -> dict | None:
     async with _connect() as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
-            "SELECT * FROM lessons WHERE status = 'ended' ORDER BY ended_at DESC LIMIT 1"
+            "SELECT * FROM lessons WHERE status = 'ended' AND user_id = ? ORDER BY ended_at DESC LIMIT 1",
+            (user_id,),
         )
         row = await cursor.fetchone()
         return dict(row) if row else None
 
 
-async def get_recent_lessons(limit: int = 10) -> list[dict]:
+async def get_recent_lessons(user_id: int, limit: int = 10) -> list[dict]:
     async with _connect() as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute(
-            "SELECT * FROM lessons ORDER BY id DESC LIMIT ?", (limit,)
+            "SELECT * FROM lessons WHERE user_id = ? ORDER BY id DESC LIMIT ?",
+            (user_id, limit),
         )
         rows = await cursor.fetchall()
         return [dict(r) for r in rows]
