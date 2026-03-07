@@ -34,7 +34,8 @@ CARD_MODEL = genanki.Model(
     h3 { margin: 0 0 12px 0; }
     i { font-size: 14px; opacity: 0.7; }
     p { margin: 4px 0; }
-    .prep { font-size: 15px; opacity: 0.85; }
+    .translation-en { font-style: italic; opacity: 0.7; }
+    .prep { opacity: 0.7; }
     .example { margin-top: 12px; }
     .example-ru { opacity: 0.7; font-size: 16px; }
     b { color: #5cb85c; }

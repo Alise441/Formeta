@@ -276,50 +276,40 @@ def format_card_anki_front(card: dict) -> str:
     """Format card front side for Anki (HTML)."""
     word_type = WORD_TYPE_LABELS.get(card["word_type"], card["word_type"])
     forms = card.get("forms", {})
-    prepositions = card.get("prepositions", [])
 
-    lines = [f"<h2>{card['base_form']}</h2>"]
-    lines.append(f"<i>{word_type.capitalize()}</i>")
-
+    # Base form + forms in one line
     if _is_verb(card["word_type"]):
-        form_parts = []
+        form_parts = [card["base_form"]]
         if forms.get("prasens_3p"):
             form_parts.append(forms["prasens_3p"])
         if forms.get("prateritum"):
             form_parts.append(forms["prateritum"])
         if forms.get("perfekt"):
             form_parts.append(forms["perfekt"])
-        if form_parts:
-            lines.append(f"<p>{' — '.join(form_parts)}</p>")
+        lines = [f"<h2>{' — '.join(form_parts)}</h2>"]
     elif card["word_type"] == "noun":
-        parts = []
+        parts = [card["base_form"]]
         if forms.get("plural"):
             parts.append(forms["plural"])
         if forms.get("genitiv"):
             parts.append(forms["genitiv"])
-        if parts:
-            lines.append(f"<p>{', '.join(parts)}</p>")
+        lines = [f"<h2>{', '.join(parts)}</h2>"]
     elif card["word_type"] == "adjective":
-        parts = []
+        parts = [card["base_form"]]
         if forms.get("komparativ"):
             parts.append(forms["komparativ"])
         if forms.get("superlativ"):
             parts.append(forms["superlativ"])
-        if parts:
-            lines.append(f"<p>{' — '.join(parts)}</p>")
+        lines = [f"<h2>{' — '.join(parts)}</h2>"]
     elif card["word_type"] == "preposition":
         if forms.get("kasus"):
-            lines.append(f"<p>+ {forms['kasus']}</p>")
+            lines = [f"<h2>{card['base_form']} + {forms['kasus']}</h2>"]
+        else:
+            lines = [f"<h2>{card['base_form']}</h2>"]
+    else:
+        lines = [f"<h2>{card['base_form']}</h2>"]
 
-    # Prepositions on front only for non-verbs
-    if not _is_verb(card["word_type"]):
-        for prep in prepositions:
-            usage = prep.get("usage", "")
-            meaning = prep.get("meaning", "")
-            if usage and meaning:
-                lines.append(f"<p class='prep'>{usage} — {meaning}</p>")
-            elif usage:
-                lines.append(f"<p class='prep'>{usage}</p>")
+    lines.append(f"<i>{word_type.capitalize()}</i>")
 
     return "\n".join(lines)
 
@@ -331,20 +321,21 @@ def format_card_anki_back(card: dict) -> str:
 
     lines = [f"<h3>{card['translation']}</h3>"]
 
+    if card.get("translation_en"):
+        lines.append(f"<p class='translation-en'>{card['translation_en']}</p>")
+
     if example and example.get("de"):
         ex_html = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", example["de"])
         lines.append(f"<p class='example'>{ex_html}</p>")
         if example.get("ru"):
             lines.append(f"<p class='example-ru'>— {example['ru']}</p>")
 
-    # Prepositions on back for verbs
-    if _is_verb(card.get("word_type", "")) and prepositions:
-        for prep in prepositions:
-            usage = prep.get("usage", "")
-            meaning = prep.get("meaning", "")
-            if usage and meaning:
-                lines.append(f"<p class='prep'>{usage} — {meaning}</p>")
-            elif usage:
-                lines.append(f"<p class='prep'>{usage}</p>")
+    for prep in prepositions:
+        usage = prep.get("usage", "")
+        meaning = prep.get("meaning", "")
+        if usage and meaning:
+            lines.append(f"<p class='prep'>{usage} — {meaning}</p>")
+        elif usage:
+            lines.append(f"<p class='prep'>{usage}</p>")
 
     return "\n".join(lines)
