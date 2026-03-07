@@ -311,13 +311,15 @@ def format_card_anki_front(card: dict) -> str:
         if forms.get("kasus"):
             lines.append(f"<p>+ {forms['kasus']}</p>")
 
-    for prep in prepositions:
-        usage = prep.get("usage", "")
-        meaning = prep.get("meaning", "")
-        if usage and meaning:
-            lines.append(f"<p class='prep'>{usage} — {meaning}</p>")
-        elif usage:
-            lines.append(f"<p class='prep'>{usage}</p>")
+    # Prepositions on front only for non-verbs
+    if not _is_verb(card["word_type"]):
+        for prep in prepositions:
+            usage = prep.get("usage", "")
+            meaning = prep.get("meaning", "")
+            if usage and meaning:
+                lines.append(f"<p class='prep'>{usage} — {meaning}</p>")
+            elif usage:
+                lines.append(f"<p class='prep'>{usage}</p>")
 
     return "\n".join(lines)
 
@@ -325,6 +327,7 @@ def format_card_anki_front(card: dict) -> str:
 def format_card_anki_back(card: dict) -> str:
     """Format card back side for Anki (HTML)."""
     example = card.get("example", {})
+    prepositions = card.get("prepositions", [])
 
     lines = [f"<h3>{card['translation']}</h3>"]
 
@@ -333,5 +336,15 @@ def format_card_anki_back(card: dict) -> str:
         lines.append(f"<p class='example'>{ex_html}</p>")
         if example.get("ru"):
             lines.append(f"<p class='example-ru'>— {example['ru']}</p>")
+
+    # Prepositions on back for verbs
+    if _is_verb(card.get("word_type", "")) and prepositions:
+        for prep in prepositions:
+            usage = prep.get("usage", "")
+            meaning = prep.get("meaning", "")
+            if usage and meaning:
+                lines.append(f"<p class='prep'>{usage} — {meaning}</p>")
+            elif usage:
+                lines.append(f"<p class='prep'>{usage}</p>")
 
     return "\n".join(lines)
