@@ -31,6 +31,20 @@ def lesson_ended_keyboard() -> ReplyKeyboardMarkup:
     )
 
 
+def teacher_idle_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        [[BTN_START_LESSON]],
+        resize_keyboard=True,
+    )
+
+
+def teacher_lesson_ended_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        [[BTN_RESUME], [BTN_START_LESSON]],
+        resize_keyboard=True,
+    )
+
+
 def card_inline_keyboard(card_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [

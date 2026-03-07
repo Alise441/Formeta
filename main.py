@@ -8,7 +8,7 @@ from telegram.ext import (
     filters,
 )
 
-from config import TELEGRAM_BOT_TOKEN
+from config import TELEGRAM_BOT_TOKEN, is_teacher
 from db.models import init_db
 from bot.keyboards import (
     BTN_START_LESSON, BTN_END_LESSON, BTN_EXPORT, BTN_EXPORT_QUIZLET, BTN_RESUME, BTN_HISTORY, BTN_WORDS,
@@ -45,6 +45,11 @@ async def text_router(update, context):
         handled = await handle_edit_reply(update, context)
         if handled:
             return
+
+    # Teachers only send words — no button routing
+    if is_teacher(update.effective_user.id):
+        await handle_word(update, context)
+        return
 
     routes = {
         BTN_START_LESSON: handle_start_lesson,

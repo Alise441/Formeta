@@ -1,9 +1,9 @@
 import logging
 
-from telegram import Update
+from telegram import ReplyKeyboardRemove, Update
 from telegram.ext import ContextTypes
 
-from config import ALLOWED_USER_IDS
+from config import ALLOWED_USER_IDS, get_lesson_owner, is_teacher, get_teachers
 from db import repository as repo
 from services.llm import analyze_word
 from services.anki import generate_deck
@@ -16,6 +16,31 @@ from bot.keyboards import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+async def _notify_teachers(context, student_id: int, text: str):
+    for teacher_id in get_teachers(student_id):
+        try:
+            await context.bot.send_message(chat_id=teacher_id, text=text)
+        except Exception as e:
+            logger.error(f"Failed to notify teacher {teacher_id}: {e}")
+
+
+async def _notify_partner(context, user_id: int, owner_id: int, text: str, parse_mode=None, reply_markup=None):
+    """Notify the other side: if teacher → student, if student → teachers."""
+    targets = []
+    if is_teacher(user_id):
+        targets.append(owner_id)
+    else:
+        targets.extend(get_teachers(user_id))
+    for target in targets:
+        try:
+            await context.bot.send_message(
+                chat_id=target, text=text,
+                parse_mode=parse_mode, reply_markup=reply_markup,
+            )
+        except Exception as e:
+            logger.error(f"Failed to notify {target}: {e}")
 
 
 def _lesson_date(lesson: dict) -> str:
@@ -39,8 +64,16 @@ def authorized(func):
 
 @authorized
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    lesson = await repo.get_active_lesson(user_id)
+    uid = update.effective_user.id
+    owner_id = get_lesson_owner(uid)
+    lesson = await repo.get_active_lesson(owner_id)
+    if is_teacher(uid):
+        if lesson:
+            text = f"{_lesson_date(lesson)} Урок активен. Отправляйте слова!"
+        else:
+            text = "Привет! Сейчас нет активного урока. Вы получите уведомление, когда урок начнётся."
+        await update.message.reply_text(text, reply_markup=ReplyKeyboardRemove())
+        return
     if lesson:
         kb = lesson_active_keyboard()
         text = f"{_lesson_date(lesson)} Урок активен. Отправляйте слова!"
@@ -52,26 +85,28 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @authorized
 async def handle_start_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    active = await repo.get_active_lesson(user_id)
+    owner_id = get_lesson_owner(update.effective_user.id)
+    active = await repo.get_active_lesson(owner_id)
     if active:
         await update.message.reply_text(
             f"{_lesson_date(active)} Урок уже идёт. Отправляйте слова!",
             reply_markup=lesson_active_keyboard(),
         )
         return
-    lesson_id = await repo.create_lesson(user_id)
-    lesson = await repo.get_active_lesson(user_id)
+    lesson_id = await repo.create_lesson(owner_id)
+    lesson = await repo.get_active_lesson(owner_id)
     await update.message.reply_text(
         f"{_lesson_date(lesson)} Урок начат! Отправляйте немецкие слова или фразы.",
         reply_markup=lesson_active_keyboard(),
     )
+    await _notify_teachers(context, owner_id,
+        f"{_lesson_date(lesson)} Урок начался! Отправляйте слова.")
 
 
 @authorized
 async def handle_end_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    lesson = await repo.get_active_lesson(user_id)
+    owner_id = get_lesson_owner(update.effective_user.id)
+    lesson = await repo.get_active_lesson(owner_id)
     if not lesson:
         await update.message.reply_text(
             "Нет активного урока.", reply_markup=idle_keyboard()
@@ -90,12 +125,14 @@ async def handle_end_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Нажмите «Экспорт в Anki» для генерации колоды.",
         reply_markup=lesson_ended_keyboard(),
     )
+    await _notify_teachers(context, owner_id,
+        f"{date} Урок завершён!\nСлов: {count}\nСлова: {word_list}")
 
 
 @authorized
 async def handle_resume_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    lesson = await repo.get_last_ended_lesson(user_id)
+    owner_id = get_lesson_owner(update.effective_user.id)
+    lesson = await repo.get_last_ended_lesson(owner_id)
     if not lesson:
         await update.message.reply_text(
             "Нет завершённых уроков для возобновления.",
@@ -107,14 +144,16 @@ async def handle_resume_lesson(update: Update, context: ContextTypes.DEFAULT_TYP
         f"{_lesson_date(lesson)} Урок возобновлён! Отправляйте слова.",
         reply_markup=lesson_active_keyboard(),
     )
+    await _notify_teachers(context, owner_id,
+        f"{_lesson_date(lesson)} Урок возобновлён! Отправляйте слова.")
 
 
 @authorized
 async def handle_export(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    lesson = await repo.get_last_ended_lesson(user_id)
+    owner_id = get_lesson_owner(update.effective_user.id)
+    lesson = await repo.get_last_ended_lesson(owner_id)
     if not lesson:
-        active = await repo.get_active_lesson(user_id)
+        active = await repo.get_active_lesson(owner_id)
         if active:
             lesson = active
         else:
@@ -148,10 +187,10 @@ def _get_lesson_date_short(lesson: dict) -> str:
 
 @authorized
 async def handle_export_quizlet(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    lesson = await repo.get_last_ended_lesson(user_id)
+    owner_id = get_lesson_owner(update.effective_user.id)
+    lesson = await repo.get_last_ended_lesson(owner_id)
     if not lesson:
-        active = await repo.get_active_lesson(user_id)
+        active = await repo.get_active_lesson(owner_id)
         if active:
             lesson = active
         else:
@@ -175,8 +214,8 @@ async def handle_export_quizlet(update: Update, context: ContextTypes.DEFAULT_TY
 
 @authorized
 async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    lessons = await repo.get_recent_lessons(user_id, 10)
+    owner_id = get_lesson_owner(update.effective_user.id)
+    lessons = await repo.get_recent_lessons(owner_id, 10)
     if not lessons:
         await update.message.reply_text("Уроков пока нет.")
         return
@@ -191,8 +230,8 @@ async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @authorized
 async def handle_words(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    lesson = await repo.get_active_lesson(user_id)
+    owner_id = get_lesson_owner(update.effective_user.id)
+    lesson = await repo.get_active_lesson(owner_id)
     if not lesson:
         await update.message.reply_text(
             "Нет активного урока.", reply_markup=idle_keyboard()
@@ -211,12 +250,17 @@ async def handle_words(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @authorized
 async def handle_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    lesson = await repo.get_active_lesson(user_id)
+    owner_id = get_lesson_owner(user_id)
+    lesson = await repo.get_active_lesson(owner_id)
     if not lesson:
-        await update.message.reply_text(
-            "Сейчас нет активного урока. Нажмите «Начать урок».",
-            reply_markup=idle_keyboard(),
-        )
+        if is_teacher(user_id):
+            await update.message.reply_text(
+                "Сейчас нет активного урока. Вы получите уведомление, когда урок начнётся.")
+        else:
+            await update.message.reply_text(
+                "Сейчас нет активного урока. Нажмите «Начать урок».",
+                reply_markup=idle_keyboard(),
+            )
         return
 
     text = update.message.text.strip()
@@ -259,6 +303,10 @@ async def handle_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="MarkdownV2",
         reply_markup=card_inline_keyboard(card_id),
     )
+
+    await _notify_partner(context, user_id, owner_id,
+        text=formatted, parse_mode="MarkdownV2",
+        reply_markup=card_inline_keyboard(card_id))
 
 
 async def callback_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -319,9 +367,15 @@ async def handle_edit_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("editing_card_id", None)
     card = await repo.get_card(card_id)
     formatted = format_card_telegram(card)
+    updated_text = f"Карточка обновлена\\!\n\n{formatted}"
     await update.message.reply_text(
-        f"Карточка обновлена\\!\n\n{formatted}",
+        updated_text,
         parse_mode="MarkdownV2",
         reply_markup=card_inline_keyboard(card_id),
     )
+    user_id = update.effective_user.id
+    owner_id = get_lesson_owner(user_id)
+    await _notify_partner(context, user_id, owner_id,
+        text=updated_text, parse_mode="MarkdownV2",
+        reply_markup=card_inline_keyboard(card_id))
     return True
