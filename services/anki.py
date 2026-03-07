@@ -46,7 +46,7 @@ def generate_deck(lesson_id: int, cards: list[dict], lesson_date: str) -> str:
     """Generate an Anki deck. lesson_date should be in dd.mm format."""
     os.makedirs(ANKI_OUTPUT_DIR, exist_ok=True)
 
-    deck_name = f"Formeta -- Урок {lesson_date}"
+    deck_name = f"Formeta — Урок {lesson_date}"
 
     deck = genanki.Deck(
         DECK_ID_BASE + lesson_id,
