@@ -2,12 +2,16 @@ import re
 
 WORD_TYPE_LABELS = {
     "verb": "глагол",
+    "verb_irregular": "неправильный глагол",
     "noun": "существительное",
     "adjective": "прилагательное",
     "adverb": "наречие",
     "phrase": "фраза",
     "preposition": "предлог",
 }
+
+def _is_verb(word_type: str) -> bool:
+    return word_type in ("verb", "verb_irregular")
 
 
 def _escape_md(text: str) -> str:
@@ -59,7 +63,7 @@ def format_card_telegram(card: dict) -> str:
     lines.append(_escape_md(word_type.capitalize()))
 
     # Forms (no labels)
-    if card["word_type"] == "verb":
+    if _is_verb(card["word_type"]):
         form_parts = []
         if forms.get("prasens_3p"):
             form_parts.append(forms["prasens_3p"])
@@ -122,7 +126,7 @@ def format_card_editable(card: dict) -> str:
     lines.append("━━━━━━━━━━━━━━━━━")
     lines.append(word_type.capitalize())
 
-    if card["word_type"] == "verb":
+    if _is_verb(card["word_type"]):
         form_parts = []
         if forms.get("prasens_3p"):
             form_parts.append(forms["prasens_3p"])
@@ -220,7 +224,7 @@ def parse_card_editable(text: str) -> dict:
         first = form_lines[0]
         rest = form_lines[1:]
 
-        if word_type == "verb":
+        if _is_verb(word_type):
             parts = [p.strip() for p in first.split(" — ")]
             if len(parts) >= 3:
                 forms["prasens_3p"] = parts[0]
@@ -277,7 +281,7 @@ def format_card_anki_front(card: dict) -> str:
     lines = [f"<h2>{card['base_form']}</h2>"]
     lines.append(f"<i>{word_type.capitalize()}</i>")
 
-    if card["word_type"] == "verb":
+    if _is_verb(card["word_type"]):
         form_parts = []
         if forms.get("prasens_3p"):
             form_parts.append(forms["prasens_3p"])

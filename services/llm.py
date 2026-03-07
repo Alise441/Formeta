@@ -9,7 +9,7 @@ SYSTEM_PROMPT = """\
 
 Твоя задача:
 1. Определить базовую форму (инфинитив для глаголов, именительный падеж ед.ч. с артиклем для существительных и т.д.)
-2. Определить часть речи (word_type): verb, noun, adjective, adverb, phrase, preposition
+2. Определить часть речи (word_type): verb, verb_irregular, noun, adjective, adverb, phrase, preposition. Для глаголов: если глагол неправильный (сильный/нерегулярный — меняет корневую гласную в Präteritum или Partizip II), используй "verb_irregular", иначе "verb".
 3. Сгенерировать грамматические формы в зависимости от части речи:
    - verb: prasens_3p (er/sie/es форма), prateritum, perfekt. Также заполни поле "prepositions" — список предлогов с управлением и кратким значением. Если у глагола нет предложного управления, верни пустой список.
    - noun: artikel (der/die/das), plural, genitiv (напр. des Hauses)
@@ -36,7 +36,7 @@ SYSTEM_PROMPT = """\
 Ввод: "gelaufen"
 {
   "base_form": "laufen",
-  "word_type": "verb",
+  "word_type": "verb_irregular",
   "forms": {
     "prasens_3p": "läuft",
     "prateritum": "lief",
