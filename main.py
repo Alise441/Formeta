@@ -31,6 +31,7 @@ from bot.handlers import (
     callback_confirm_delete,
     callback_cancel_delete,
     callback_edit,
+    handle_photo,
 )
 
 logging.basicConfig(
@@ -83,6 +84,7 @@ def main():
 
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_router))
+    app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(CallbackQueryHandler(callback_edit, pattern=r"^edit:"))
     app.add_handler(CallbackQueryHandler(callback_delete, pattern=r"^delete:"))
     app.add_handler(CallbackQueryHandler(callback_confirm_delete, pattern=r"^confirm_delete:"))
