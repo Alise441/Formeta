@@ -129,7 +129,7 @@ def _parse_json(text: str):
 
 async def analyze_word(text: str) -> dict:
     message = await client.messages.create(
-        model="claude-haiku-4-5-20251001",
+        model="claude-sonnet-4-6",
         max_tokens=1024,
         messages=[{"role": "user", "content": text}],
         system=SYSTEM_PROMPT,
@@ -177,7 +177,7 @@ IMAGE_SYSTEM_PROMPT = """\
 async def analyze_image_words(image_bytes: bytes, media_type: str = "image/jpeg") -> list[dict]:
     image_b64 = base64.b64encode(image_bytes).decode("utf-8")
     message = await client.messages.create(
-        model="claude-haiku-4-5-20251001",
+        model="claude-sonnet-4-6",
         max_tokens=4096,
         messages=[{
             "role": "user",
