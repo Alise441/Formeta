@@ -238,7 +238,7 @@ async def handle_export(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     await update.message.reply_text("Генерирую колоду...")
     lesson_date = _get_lesson_date_short(lesson)
-    filepath = generate_deck(lesson["id"], cards, lesson_date)
+    filepath = generate_deck(lesson["id"], cards, lesson_date, lesson.get("lesson_type", "lesson"))
     filename = f"formeta_lesson_{lesson_date}.apkg"
     await update.message.reply_document(
         document=open(filepath, "rb"),

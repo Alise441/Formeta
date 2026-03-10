@@ -43,11 +43,12 @@ CARD_MODEL = genanki.Model(
 )
 
 
-def generate_deck(lesson_id: int, cards: list[dict], lesson_date: str) -> str:
+def generate_deck(lesson_id: int, cards: list[dict], lesson_date: str, lesson_type: str = "lesson") -> str:
     """Generate an Anki deck. lesson_date should be in dd.mm format."""
     os.makedirs(ANKI_OUTPUT_DIR, exist_ok=True)
 
-    deck_name = f"Formeta — Урок #{lesson_id} {lesson_date}"
+    label = "Урок" if lesson_type == "lesson" else "Сессия"
+    deck_name = f"Formeta — {label} #{lesson_id} {lesson_date}"
 
     deck = genanki.Deck(
         DECK_ID_BASE + lesson_id,
