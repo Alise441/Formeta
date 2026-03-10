@@ -48,7 +48,7 @@ def generate_deck(lesson_id: int, cards: list[dict], lesson_date: str, lesson_ty
     os.makedirs(ANKI_OUTPUT_DIR, exist_ok=True)
 
     label = "Урок" if lesson_type == "lesson" else "Сессия"
-    deck_name = f"Formeta — {label} #{lesson_id} {lesson_date}"
+    deck_name = f"Formeta — #{lesson_id} {label} {lesson_date}"
 
     deck = genanki.Deck(
         DECK_ID_BASE + lesson_id,
