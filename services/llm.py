@@ -1,12 +1,15 @@
 import base64
 import json
+import re
 import anthropic
 from config import ANTHROPIC_API_KEY
 
 client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
 
 SYSTEM_PROMPT = """\
-Ты — помощник для изучения немецкого языка. Пользователь отправляет тебе немецкое слово или фразу в любой форме (спряжённый глагол, множественное число, склонённое прилагательное и т.д.).
+Ты — помощник для изучения немецкого языка. Пользователь отправляет тебе немецкое слово, фразу или целое предложение. Это может быть что угодно на немецком — одно слово, словосочетание, идиома или полное предложение.
+
+ВАЖНО: Ты ВСЕГДА должен ответить валидным JSON. Никогда не отвечай текстом, пояснениями или отказом. Даже если ввод — целое предложение, проанализируй его как фразу (word_type: "phrase").
 
 Твоя задача:
 1. Определить базовую форму (инфинитив для глаголов, именительный падеж ед.ч. с артиклем для существительных и т.д.)
@@ -103,13 +106,21 @@ SYSTEM_PROMPT = """\
 
 
 def _parse_json(text: str):
-    """Strip markdown code fences and parse JSON."""
+    """Strip markdown code fences and parse JSON. Tries to extract JSON from text if direct parse fails."""
     content = text.strip()
     if content.startswith("```"):
         content = content.split("\n", 1)[1]
         if content.endswith("```"):
             content = content[:-3]
-    return json.loads(content)
+        content = content.strip()
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        # Try to find JSON object or array in the response
+        match = re.search(r'(\{[\s\S]*\}|\[[\s\S]*\])', content)
+        if match:
+            return json.loads(match.group(1))
+        raise
 
 
 async def analyze_word(text: str) -> dict:
