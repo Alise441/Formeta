@@ -5,7 +5,7 @@ from telegram.ext import ContextTypes
 
 from config import ALLOWED_USER_IDS, get_lesson_owner, is_teacher, get_teachers
 from db import repository as repo
-from services.llm import analyze_word
+from services.llm import analyze_word, analyze_image_words
 from services.anki import generate_deck
 from services.quizlet import generate_quizlet_export
 from bot.formatters import format_card_telegram, format_card_editable, parse_card_editable
@@ -455,3 +455,78 @@ async def handle_edit_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text=updated_text, parse_mode="MarkdownV2",
             reply_markup=card_inline_keyboard(card_id))
     return True
+
+
+@authorized
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    owner_id = get_lesson_owner(user_id)
+    lesson = await repo.get_active_lesson(owner_id)
+    if not lesson or (is_teacher(user_id) and not _is_lesson(lesson)):
+        if is_teacher(user_id):
+            await update.message.reply_text(
+                "Сейчас нет активного урока. Вы получите уведомление, когда урок начнётся.")
+        else:
+            await update.message.reply_text(
+                "Сейчас нет активного урока. Нажмите «Начать урок».",
+                reply_markup=idle_keyboard(),
+            )
+        return
+
+    await update.message.reply_chat_action("typing")
+    status_msg = await update.message.reply_text("Анализирую изображение...")
+
+    try:
+        photo = update.message.photo[-1]
+        file = await context.bot.get_file(photo.file_id)
+        image_bytes = await file.download_as_bytearray()
+        words = await analyze_image_words(bytes(image_bytes))
+    except Exception as e:
+        logger.error(f"Image analysis error: {e}")
+        await status_msg.edit_text("Ошибка при анализе изображения. Попробуйте ещё раз.")
+        return
+
+    if not words:
+        await status_msg.edit_text("Не нашла подчёркнутых слов на изображении.")
+        return
+
+    await status_msg.edit_text(f"Найдено слов: {len(words)}. Создаю карточки...")
+
+    count = 0
+    for data in words:
+        try:
+            example = None
+            if data.get("example_de"):
+                example = {"de": data["example_de"], "ru": data.get("example_ru", "")}
+
+            card_id = await repo.create_card(
+                lesson_id=lesson["id"],
+                raw_input=data.get("base_form", ""),
+                base_form=data["base_form"],
+                word_type=data["word_type"],
+                forms=data.get("forms"),
+                translation=data["translation"],
+                translation_en=data.get("translation_en", ""),
+                example=example,
+                prepositions=data.get("prepositions", []),
+                created_by=update.effective_user.username or str(user_id),
+            )
+
+            card = await repo.get_card(card_id)
+            formatted = format_card_telegram(card)
+            await update.message.reply_text(
+                formatted,
+                parse_mode="MarkdownV2",
+                reply_markup=card_inline_keyboard(card_id),
+            )
+
+            if _is_lesson(lesson):
+                await _notify_partner(context, user_id, owner_id,
+                    text=formatted, parse_mode="MarkdownV2",
+                    reply_markup=card_inline_keyboard(card_id))
+
+            count += 1
+        except Exception as e:
+            logger.error(f"Error creating card for '{data.get('base_form', '?')}': {e}")
+
+    await status_msg.edit_text(f"Добавлено слов: {count}")

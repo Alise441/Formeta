@@ -1,3 +1,4 @@
+import base64
 import json
 import anthropic
 from config import ANTHROPIC_API_KEY
@@ -101,6 +102,16 @@ SYSTEM_PROMPT = """\
 """
 
 
+def _parse_json(text: str):
+    """Strip markdown code fences and parse JSON."""
+    content = text.strip()
+    if content.startswith("```"):
+        content = content.split("\n", 1)[1]
+        if content.endswith("```"):
+            content = content[:-3]
+    return json.loads(content)
+
+
 async def analyze_word(text: str) -> dict:
     message = await client.messages.create(
         model="claude-haiku-4-5-20251001",
@@ -108,10 +119,58 @@ async def analyze_word(text: str) -> dict:
         messages=[{"role": "user", "content": text}],
         system=SYSTEM_PROMPT,
     )
-    content = message.content[0].text.strip()
-    # Remove markdown code block if present
-    if content.startswith("```"):
-        content = content.split("\n", 1)[1]
-        if content.endswith("```"):
-            content = content[:-3]
-    return json.loads(content)
+    return _parse_json(message.content[0].text)
+
+
+IMAGE_SYSTEM_PROMPT = """\
+Ты — помощник для изучения немецкого языка. Пользователь отправляет фото с немецким текстом, на котором некоторые слова подчёркнуты, обведены или выделены маркером/ручкой.
+
+Твоя задача:
+1. Найти ВСЕ подчёркнутые/выделенные слова или фразы на изображении.
+2. Для каждого слова выполнить полный анализ:
+   - Определить базовую форму (инфинитив для глаголов, именительный падеж ед.ч. с артиклем для существительных и т.д.)
+   - Определить часть речи (word_type): verb, verb_irregular, noun, adjective, adverb, phrase, preposition. Для глаголов: если глагол неправильный (сильный/нерегулярный — меняет корневую гласную в Präteritum или Partizip II), используй "verb_irregular", иначе "verb".
+   - Сгенерировать грамматические формы:
+     - verb: prasens_3p, prateritum, perfekt + prepositions
+     - noun: artikel, plural, genitiv
+     - adjective: komparativ, superlativ + prepositions
+     - adverb: без форм
+     - phrase: без форм
+     - preposition: kasus
+   - Перевод на русский (1-3 значения)
+   - Перевод на английский (1-3 значения)
+   - ОДИН пример предложения уровня A2-B1 с переводом на русский. Выдели целевое слово двойными звёздочками (**слово**).
+
+Ответь ТОЛЬКО валидным JSON — массивом объектов, без markdown-блоков:
+[
+  {
+    "base_form": "...",
+    "word_type": "verb|noun|adjective|adverb|phrase|preposition",
+    "forms": { ... },
+    "prepositions": [{"usage": "...", "meaning": "..."}],
+    "translation": "...",
+    "translation_en": "...",
+    "example_de": "...",
+    "example_ru": "..."
+  }
+]
+
+Если подчёркнутых слов нет, верни пустой массив: []
+"""
+
+
+async def analyze_image_words(image_bytes: bytes, media_type: str = "image/jpeg") -> list[dict]:
+    image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+    message = await client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=4096,
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_b64}},
+                {"type": "text", "text": "Найди все подчёркнутые или выделенные слова на изображении и проанализируй каждое."},
+            ],
+        }],
+        system=IMAGE_SYSTEM_PROMPT,
+    )
+    return _parse_json(message.content[0].text)
