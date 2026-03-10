@@ -8,6 +8,9 @@ WORD_TYPE_LABELS = {
     "adverb": "наречие",
     "phrase": "фраза",
     "preposition": "предлог",
+    "pronoun": "местоимение",
+    "conjunction": "союз",
+    "particle": "частица",
 }
 
 def _is_verb(word_type: str) -> bool:

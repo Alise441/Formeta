@@ -17,7 +17,7 @@ SYSTEM_PROMPT = """\
 
 Полный анализ для слов и коротких словосочетаний:
 1. Определить базовую форму (инфинитив для глаголов, именительный падеж ед.ч. с артиклем для существительных и т.д.)
-2. Определить часть речи (word_type): verb, verb_irregular, noun, adjective, adverb, phrase, preposition. Для глаголов: если глагол неправильный (сильный/нерегулярный — меняет корневую гласную в Präteritum или Partizip II), используй "verb_irregular", иначе "verb".
+2. Определить часть речи (word_type): verb, verb_irregular, noun, adjective, adverb, phrase, preposition, pronoun, conjunction, particle. Для глаголов: если глагол неправильный (сильный/нерегулярный — меняет корневую гласную в Präteritum или Partizip II), используй "verb_irregular", иначе "verb".
 3. Сгенерировать грамматические формы в зависимости от части речи:
    - verb: prasens_3p (er/sie/es форма), prateritum, perfekt. Также заполни поле "prepositions" — список предлогов с управлением и кратким значением. Если у глагола нет предложного управления, верни пустой список.
    - noun: artikel (der/die/das), plural, genitiv (напр. des Hauses)
@@ -25,6 +25,9 @@ SYSTEM_PROMPT = """\
    - adverb: без дополнительных форм
    - phrase: без отдельных форм
    - preposition: kasus (какой падеж требует: Akk, Dat, Gen)
+   - pronoun: в base_form указать все родовые формы через " / " (напр. "jener / jene / jenes"), forms пустой
+   - conjunction: без дополнительных форм
+   - particle: без дополнительных форм
 4. Перевод на русский язык (краткий, 1-3 значения)
 5. Перевод на английский язык (краткий, 1-3 значения)
 6. ОДИН пример предложения уровня A2-B1 с переводом на русский. Выдели целевое слово двойными звёздочками (**слово**).
@@ -32,7 +35,7 @@ SYSTEM_PROMPT = """\
 Ответь ТОЛЬКО валидным JSON без markdown-блоков, в таком формате:
 {
   "base_form": "...",
-  "word_type": "verb|noun|adjective|adverb|phrase|preposition",
+  "word_type": "verb|noun|adjective|adverb|phrase|preposition|pronoun|conjunction|particle",
   "forms": { ... },
   "prepositions": [{"usage": "...", "meaning": "..."}],
   "translation": "...",
@@ -160,7 +163,7 @@ IMAGE_SYSTEM_PROMPT = """\
 [
   {
     "base_form": "...",
-    "word_type": "verb|noun|adjective|adverb|phrase|preposition",
+    "word_type": "verb|noun|adjective|adverb|phrase|preposition|pronoun|conjunction|particle",
     "forms": { ... },
     "prepositions": [{"usage": "...", "meaning": "..."}],
     "translation": "...",
