@@ -112,8 +112,31 @@ SYSTEM_PROMPT = """\
 """
 
 
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def _fix_json(text: str) -> str:
+    """Try to fix common JSON issues like unescaped quotes inside string values."""
+    # Fix unescaped quotes inside JSON string values:
+    # Match content between key-value quotes and escape inner quotes
+    def fix_line(line: str) -> str:
+        # Pattern: "key": "value with "quotes" inside"
+        # Find the value part and escape inner quotes
+        m = re.match(r'^(\s*"[^"]+"\s*:\s*)"(.+)"(,?\s*)$', line)
+        if m:
+            prefix, value, suffix = m.group(1), m.group(2), m.group(3)
+            # Check if value has unescaped quotes
+            if '"' in value:
+                value = value.replace('\\"', '\x00').replace('"', '\\"').replace('\x00', '\\"')
+                return f'{prefix}"{value}"{suffix}'
+        return line
+    return "\n".join(fix_line(l) for l in text.split("\n"))
+
+
 def _parse_json(text: str):
-    """Strip markdown code fences and parse JSON. Tries to extract JSON from text if direct parse fails."""
+    """Strip markdown code fences and parse JSON. Tries to fix and extract JSON on failure."""
     content = text.strip()
     if content.startswith("```"):
         content = content.split("\n", 1)[1]
@@ -126,7 +149,18 @@ def _parse_json(text: str):
         # Try to find JSON object or array in the response
         match = re.search(r'(\{[\s\S]*\}|\[[\s\S]*\])', content)
         if match:
-            return json.loads(match.group(1))
+            extracted = match.group(1)
+            try:
+                return json.loads(extracted)
+            except json.JSONDecodeError:
+                pass
+            # Try fixing unescaped quotes
+            try:
+                return json.loads(_fix_json(extracted))
+            except json.JSONDecodeError:
+                pass
+        # Log raw response for debugging
+        logger.error(f"Failed to parse LLM response:\n{content[:500]}")
         raise
 
 
