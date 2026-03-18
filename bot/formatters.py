@@ -17,20 +17,25 @@ def _is_verb(word_type: str) -> bool:
     return word_type in ("verb", "verb_irregular")
 
 
-def _verb_form_parts(card: dict, short_regular: bool = False) -> list[str]:
-    """Return verb form parts list, respecting short_regular setting."""
+def _verb_display(card: dict, short_regular: bool = False) -> str:
+    """Format verb as 'base_form (prasens_3p) — prateritum — perfekt'.
+    For regular verbs with short_regular=True, only 'base_form (prasens_3p)'."""
     forms = card.get("forms", {})
-    parts = []
+    base = card["base_form"]
     if forms.get("prasens_3p"):
-        parts.append(forms["prasens_3p"])
+        head = f"{base} ({forms['prasens_3p']})"
+    else:
+        head = base
     if short_regular and card["word_type"] == "verb":
-        # Regular verbs: only prasens_3p
-        return parts
+        return head
+    rest = []
     if forms.get("prateritum"):
-        parts.append(forms["prateritum"])
+        rest.append(forms["prateritum"])
     if forms.get("perfekt"):
-        parts.append(forms["perfekt"])
-    return parts
+        rest.append(forms["perfekt"])
+    if rest:
+        return f"{head} — {' — '.join(rest)}"
+    return head
 
 
 def _escape_md(text: str) -> str:
@@ -86,9 +91,7 @@ def format_card_telegram(card: dict, show_translation_en: bool = False, short_re
 
     # Forms (no labels)
     if _is_verb(card["word_type"]):
-        form_parts = _verb_form_parts(card, short_regular=short_regular_verbs)
-        if form_parts:
-            lines.append(_escape_md(" — ".join(form_parts)))
+        lines.append(_escape_md(_verb_display(card, short_regular=short_regular_verbs)))
     elif card["word_type"] == "noun":
         noun_parts = []
         if forms.get("plural"):
@@ -295,8 +298,7 @@ def format_card_anki_front(card: dict, short_regular_verbs: bool = False) -> str
 
     # Base form + forms in one line
     if _is_verb(card["word_type"]):
-        form_parts = [card["base_form"]] + _verb_form_parts(card, short_regular=short_regular_verbs)
-        lines = [f"<h2>{' — '.join(form_parts)}</h2>"]
+        lines = [f"<h2>{_verb_display(card, short_regular=short_regular_verbs)}</h2>"]
     elif card["word_type"] == "noun":
         parts = [card["base_form"]]
         if forms.get("plural"):
@@ -366,10 +368,7 @@ def format_anki_base_with_forms(card: dict, short_regular_verbs: bool = False) -
     forms = card.get("forms", {})
 
     if _is_verb(card["word_type"]):
-        lines = [f"<h2>{card['base_form']}</h2>"]
-        form_parts = _verb_form_parts(card, short_regular=short_regular_verbs)
-        if form_parts:
-            lines.append(f"<p>{' — '.join(form_parts)}</p>")
+        lines = [f"<h2>{_verb_display(card, short_regular=short_regular_verbs)}</h2>"]
     elif card["word_type"] == "noun":
         parts = [card["base_form"]]
         if forms.get("plural"):
