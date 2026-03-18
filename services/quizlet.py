@@ -64,13 +64,57 @@ def _format_back(card: dict) -> str:
     return "\n".join(lines)
 
 
-def generate_quizlet_export(lesson_id: int, cards: list[dict], lesson_date: str) -> str:
+def _strip_article(text: str) -> str:
+    """Remove German article from the beginning of a word."""
+    for art in ("der ", "die ", "das "):
+        if text.startswith(art):
+            return text[len(art):]
+    return text
+
+
+def _format_front_en_only(card: dict) -> str:
+    """Front side for EN-only mode: word + forms, no articles for nouns."""
+    forms = card.get("forms", {})
+    base = card["base_form"]
+
+    if _is_verb(card["word_type"]):
+        parts = [base]
+        if forms.get("prasens_3p"):
+            parts.append(forms["prasens_3p"])
+        if forms.get("prateritum"):
+            parts.append(forms["prateritum"])
+        if forms.get("perfekt"):
+            parts.append(forms["perfekt"])
+        return " — ".join(parts)
+    elif card["word_type"] == "noun":
+        parts = [_strip_article(base)]
+        if forms.get("plural"):
+            parts.append(_strip_article(forms["plural"]))
+        return " — ".join(parts)
+    else:
+        return base
+
+
+def _format_back_en_only(card: dict) -> str:
+    """Back side for EN-only mode: just English translation."""
+    return card.get("translation_en", card["translation"])
+
+
+def generate_quizlet_export(lesson_id: int, cards: list[dict], lesson_date: str,
+                            en_only: bool = False) -> str:
     os.makedirs(ANKI_OUTPUT_DIR, exist_ok=True)
 
     card_blocks = []
     for card in cards:
-        front = _format_front(card)
-        back = _format_back(card)
+        if en_only:
+            # Skip phrases and sentences
+            if card["word_type"] == "phrase":
+                continue
+            front = _format_front_en_only(card)
+            back = _format_back_en_only(card)
+        else:
+            front = _format_front(card)
+            back = _format_back(card)
         card_blocks.append(f"{front}\t{back}")
 
     filepath = os.path.join(ANKI_OUTPUT_DIR, f"formeta_quizlet_{lesson_date}.txt")

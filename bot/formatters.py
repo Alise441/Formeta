@@ -42,7 +42,7 @@ def _escape_md(text: str) -> str:
     return text
 
 
-def format_card_telegram(card: dict) -> str:
+def format_card_telegram(card: dict, show_translation_en: bool = False) -> str:
     """Format a card for Telegram MarkdownV2 display."""
     word_type = WORD_TYPE_LABELS.get(card["word_type"], card["word_type"])
     forms = card.get("forms", {})
@@ -53,6 +53,9 @@ def format_card_telegram(card: dict) -> str:
     lines = [
         f"*{_escape_md(card['base_form'])}* — {_escape_md(card['translation'])}"
     ]
+
+    if show_translation_en and card.get("translation_en"):
+        lines.append(_escape_md(card["translation_en"]))
 
     # Example sentence with translation
     if example and example.get("de"):
