@@ -11,6 +11,7 @@ BTN_EXPORT_QUIZLET = "Экспорт в Quizlet"
 BTN_START_SESSION = "Начать сессию"
 BTN_END_SESSION = "Завершить сессию"
 BTN_RESUME_SESSION = "Возобновить сессию"
+BTN_TEACHER_EXPORT = "Выгрузить слова"
 
 
 def idle_keyboard() -> ReplyKeyboardMarkup:
@@ -55,6 +56,10 @@ def card_inline_keyboard(card_id: int) -> InlineKeyboardMarkup:
             InlineKeyboardButton("Удалить", callback_data=f"delete:{card_id}"),
         ]
     ])
+
+
+def teacher_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup([[BTN_TEACHER_EXPORT]], resize_keyboard=True)
 
 
 def confirm_delete_keyboard(card_id: int) -> InlineKeyboardMarkup:

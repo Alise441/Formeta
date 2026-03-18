@@ -211,6 +211,25 @@ async def get_lesson_by_card(card_id: int) -> dict | None:
         return dict(row) if row else None
 
 
+async def get_cards_by_lessons(lesson_ids: list[int], word_types: list[str] = None) -> list[dict]:
+    """Get cards from multiple lessons, optionally filtered by word_type."""
+    if not lesson_ids:
+        return []
+    placeholders = ",".join("?" * len(lesson_ids))
+    query = f"SELECT * FROM cards WHERE lesson_id IN ({placeholders})"
+    params = list(lesson_ids)
+    if word_types:
+        wt_placeholders = ",".join("?" * len(word_types))
+        query += f" AND word_type IN ({wt_placeholders})"
+        params.extend(word_types)
+    query += " ORDER BY id"
+    async with _connect() as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(query, params)
+        rows = await cursor.fetchall()
+        return [_parse_card(dict(r)) for r in rows]
+
+
 async def count_lesson_cards(lesson_id: int) -> int:
     async with _connect() as db:
         db.row_factory = aiosqlite.Row
