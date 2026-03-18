@@ -12,7 +12,7 @@ from config import TELEGRAM_BOT_TOKEN, is_teacher
 from db.models import init_db
 from bot.keyboards import (
     BTN_START_LESSON, BTN_END_LESSON, BTN_EXPORT, BTN_EXPORT_QUIZLET, BTN_RESUME, BTN_HISTORY, BTN_WORDS,
-    BTN_START_SESSION, BTN_END_SESSION, BTN_RESUME_SESSION,
+    BTN_START_SESSION, BTN_END_SESSION, BTN_RESUME_SESSION, BTN_TEACHER_EXPORT,
 )
 from bot.handlers import (
     cmd_start,
@@ -32,6 +32,9 @@ from bot.handlers import (
     callback_cancel_delete,
     callback_edit,
     handle_photo,
+    handle_teacher_export,
+    callback_tl_toggle, callback_tl_all, callback_tl_next,
+    callback_twt_toggle, callback_twt_all, callback_twt_export,
 )
 
 logging.basicConfig(
@@ -50,8 +53,11 @@ async def text_router(update, context):
         if handled:
             return
 
-    # Teachers only send words — no button routing
+    # Teachers: check export button, otherwise send words
     if is_teacher(update.effective_user.id):
+        if text == BTN_TEACHER_EXPORT:
+            await handle_teacher_export(update, context)
+            return
         await handle_word(update, context)
         return
 
@@ -89,6 +95,13 @@ def main():
     app.add_handler(CallbackQueryHandler(callback_delete, pattern=r"^delete:"))
     app.add_handler(CallbackQueryHandler(callback_confirm_delete, pattern=r"^confirm_delete:"))
     app.add_handler(CallbackQueryHandler(callback_cancel_delete, pattern=r"^cancel_delete:"))
+    # Teacher export callbacks
+    app.add_handler(CallbackQueryHandler(callback_tl_toggle, pattern=r"^tl:\d"))
+    app.add_handler(CallbackQueryHandler(callback_tl_all, pattern=r"^tla$"))
+    app.add_handler(CallbackQueryHandler(callback_tl_next, pattern=r"^tlnext$"))
+    app.add_handler(CallbackQueryHandler(callback_twt_toggle, pattern=r"^twt:"))
+    app.add_handler(CallbackQueryHandler(callback_twt_all, pattern=r"^twta$"))
+    app.add_handler(CallbackQueryHandler(callback_twt_export, pattern=r"^twtexport$"))
 
     logging.info("Bot started")
     app.run_polling()

@@ -12,19 +12,19 @@ from services.quizlet import generate_quizlet_export
 from bot.formatters import format_card_telegram, format_card_editable, parse_card_editable
 from bot.keyboards import (
     BTN_START_LESSON, BTN_END_LESSON, BTN_EXPORT, BTN_EXPORT_QUIZLET, BTN_RESUME, BTN_HISTORY, BTN_WORDS,
-    BTN_START_SESSION, BTN_END_SESSION, BTN_RESUME_SESSION,
+    BTN_START_SESSION, BTN_END_SESSION, BTN_RESUME_SESSION, BTN_TEACHER_EXPORT,
     idle_keyboard, lesson_active_keyboard, lesson_ended_keyboard,
     session_active_keyboard, session_ended_keyboard,
-    card_inline_keyboard, confirm_delete_keyboard,
+    card_inline_keyboard, confirm_delete_keyboard, teacher_keyboard,
 )
 
 logger = logging.getLogger(__name__)
 
 
-async def _notify_teachers(context, student_id: int, text: str):
+async def _notify_teachers(context, student_id: int, text: str, reply_markup=None):
     for teacher_id in get_teachers(student_id):
         try:
-            await context.bot.send_message(chat_id=teacher_id, text=text)
+            await context.bot.send_message(chat_id=teacher_id, text=text, reply_markup=reply_markup)
         except Exception as e:
             logger.error(f"Failed to notify teacher {teacher_id}: {e}")
 
@@ -96,9 +96,10 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_teacher(uid):
         if lesson and _is_lesson(lesson):
             text = f"{_lesson_date(lesson)} Урок активен. Отправляйте слова!"
+            await update.message.reply_text(text, reply_markup=ReplyKeyboardRemove())
         else:
             text = "Привет! Сейчас нет активного урока. Вы получите уведомление, когда урок начнётся."
-        await update.message.reply_text(text, reply_markup=ReplyKeyboardRemove())
+            await update.message.reply_text(text, reply_markup=teacher_keyboard())
         return
     if lesson:
         kb = _active_keyboard(lesson)
@@ -176,7 +177,8 @@ async def handle_end_lesson(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     if is_lt:
         await _notify_teachers(context, owner_id,
-            f"{date} Урок завершён!\nСлов: {count}\nСлова: {word_list}")
+            f"{date} Урок завершён!\nСлов: {count}\nСлова: {word_list}",
+            reply_markup=teacher_keyboard())
 
 
 @authorized
@@ -546,3 +548,192 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.error(f"Error creating card for '{data.get('base_form', '?')}': {e}")
 
     await status_msg.edit_text(f"Добавлено слов: {count}")
+
+
+# --- Teacher export flow ---
+
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+
+WORD_TYPE_GROUPS = {
+    "verb": "Глаголы",
+    "noun": "Существительные",
+    "adjective": "Прилагательные",
+    "phrase": "Фразы",
+    "other": "Остальное",
+}
+# word_types that map to "other"
+_OTHER_TYPES = {"adverb", "preposition", "pronoun", "conjunction", "particle", "verb_irregular"}
+
+
+def _wt_group(word_type: str) -> str:
+    if word_type in ("verb", "noun", "adjective", "phrase"):
+        return word_type
+    return "other"
+
+
+def _build_lesson_keyboard(state: dict) -> InlineKeyboardMarkup:
+    lessons = state["lessons"]
+    rows = []
+    for lid, info in lessons.items():
+        check = "☑" if info["selected"] else "☐"
+        rows.append([InlineKeyboardButton(
+            f"{check} {info['date']} — {info['count']} слов",
+            callback_data=f"tl:{lid}",
+        )])
+    all_selected = all(i["selected"] for i in lessons.values())
+    rows.append([
+        InlineKeyboardButton("☑ Все" if all_selected else "☐ Все", callback_data="tla"),
+        InlineKeyboardButton("Далее →", callback_data="tlnext"),
+    ])
+    return InlineKeyboardMarkup(rows)
+
+
+def _build_wordtype_keyboard(state: dict) -> InlineKeyboardMarkup:
+    wt = state["word_types"]
+    rows = []
+    for key, label in WORD_TYPE_GROUPS.items():
+        check = "☑" if wt[key] else "☐"
+        rows.append([InlineKeyboardButton(f"{check} {label}", callback_data=f"twt:{key}")])
+    all_selected = all(wt.values())
+    rows.append([
+        InlineKeyboardButton("☑ Все" if all_selected else "☐ Все", callback_data="twta"),
+        InlineKeyboardButton("Выгрузить", callback_data="twtexport"),
+    ])
+    return InlineKeyboardMarkup(rows)
+
+
+@authorized
+async def handle_teacher_export(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_user.id
+    owner_id = get_lesson_owner(uid)
+    lessons_raw = await repo.get_recent_lessons(owner_id, 10)
+    if not lessons_raw:
+        await update.message.reply_text("Уроков пока нет.", reply_markup=teacher_keyboard())
+        return
+
+    lessons = {}
+    for ls in lessons_raw:
+        count = await repo.count_lesson_cards(ls["id"])
+        lessons[ls["id"]] = {
+            "date": _lesson_date(ls),
+            "count": count,
+            "selected": False,
+        }
+
+    state = {
+        "lessons": lessons,
+        "word_types": {k: True for k in WORD_TYPE_GROUPS},
+    }
+    context.user_data["teacher_export"] = state
+
+    msg = await update.message.reply_text(
+        "Выберите уроки для выгрузки:",
+        reply_markup=_build_lesson_keyboard(state),
+    )
+    state["msg_id"] = msg.message_id
+
+
+async def callback_tl_toggle(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    state = context.user_data.get("teacher_export")
+    if not state:
+        return
+    lid = int(query.data.split(":")[1])
+    if lid in state["lessons"]:
+        state["lessons"][lid]["selected"] = not state["lessons"][lid]["selected"]
+    await query.edit_message_reply_markup(reply_markup=_build_lesson_keyboard(state))
+
+
+async def callback_tl_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    state = context.user_data.get("teacher_export")
+    if not state:
+        return
+    all_selected = all(i["selected"] for i in state["lessons"].values())
+    for info in state["lessons"].values():
+        info["selected"] = not all_selected
+    await query.edit_message_reply_markup(reply_markup=_build_lesson_keyboard(state))
+
+
+async def callback_tl_next(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    state = context.user_data.get("teacher_export")
+    if not state:
+        return
+    selected = [lid for lid, info in state["lessons"].items() if info["selected"]]
+    if not selected:
+        await query.answer("Выберите хотя бы один урок", show_alert=True)
+        return
+    await query.edit_message_text(
+        "Выберите части речи:",
+        reply_markup=_build_wordtype_keyboard(state),
+    )
+
+
+async def callback_twt_toggle(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    state = context.user_data.get("teacher_export")
+    if not state:
+        return
+    key = query.data.split(":")[1]
+    if key in state["word_types"]:
+        state["word_types"][key] = not state["word_types"][key]
+    await query.edit_message_reply_markup(reply_markup=_build_wordtype_keyboard(state))
+
+
+async def callback_twt_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    state = context.user_data.get("teacher_export")
+    if not state:
+        return
+    all_selected = all(state["word_types"].values())
+    for key in state["word_types"]:
+        state["word_types"][key] = not all_selected
+    await query.edit_message_reply_markup(reply_markup=_build_wordtype_keyboard(state))
+
+
+async def callback_twt_export(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    state = context.user_data.get("teacher_export")
+    if not state:
+        return
+
+    selected_lessons = [lid for lid, info in state["lessons"].items() if info["selected"]]
+    selected_groups = [k for k, v in state["word_types"].items() if v]
+
+    # Expand groups to actual word_types
+    word_types = []
+    for g in selected_groups:
+        if g == "other":
+            word_types.extend(_OTHER_TYPES)
+        else:
+            word_types.append(g)
+
+    cards = await repo.get_cards_by_lessons(selected_lessons, word_types if len(selected_groups) < len(WORD_TYPE_GROUPS) else None)
+
+    if not cards:
+        await query.edit_message_text("Нет слов по выбранным критериям.")
+        return
+
+    # Generate .txt
+    import os
+    from config import ANKI_OUTPUT_DIR
+    os.makedirs(ANKI_OUTPUT_DIR, exist_ok=True)
+    filepath = os.path.join(ANKI_OUTPUT_DIR, "teacher_export.txt")
+    with open(filepath, "w", encoding="utf-8") as f:
+        for card in cards:
+            f.write(card["base_form"] + "\n")
+
+    await query.edit_message_text(f"Выгружено слов: {len(cards)}")
+    await query.message.reply_document(
+        document=open(filepath, "rb"),
+        filename=f"words_{len(cards)}.txt",
+        caption=f"Список слов ({len(cards)})",
+    )
+    context.user_data.pop("teacher_export", None)
