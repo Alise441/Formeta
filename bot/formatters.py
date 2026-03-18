@@ -345,3 +345,80 @@ def format_card_anki_back(card: dict) -> str:
             lines.append(f"<p class='prep'>{usage}</p>")
 
     return "\n".join(lines)
+
+
+def format_anki_translation_hint(card: dict) -> str:
+    """RU + EN translation for reverse card front. Empty for phrases."""
+    if card["word_type"] == "phrase":
+        return ""
+    parts = [card["translation"]]
+    if card.get("translation_en"):
+        parts.append(card["translation_en"])
+    return " / ".join(parts)
+
+
+def format_anki_base_with_forms(card: dict) -> str:
+    """German word + forms for reverse card back (HTML)."""
+    forms = card.get("forms", {})
+
+    if _is_verb(card["word_type"]):
+        lines = [f"<h2>{card['base_form']}</h2>"]
+        form_parts = []
+        if forms.get("prasens_3p"):
+            form_parts.append(forms["prasens_3p"])
+        if forms.get("prateritum"):
+            form_parts.append(forms["prateritum"])
+        if forms.get("perfekt"):
+            form_parts.append(forms["perfekt"])
+        if form_parts:
+            lines.append(f"<p>{' — '.join(form_parts)}</p>")
+    elif card["word_type"] == "noun":
+        parts = [card["base_form"]]
+        if forms.get("plural"):
+            parts.append(forms["plural"])
+        lines = [f"<h2>{', '.join(parts)}</h2>"]
+    elif card["word_type"] == "adjective":
+        lines = [f"<h2>{card['base_form']}</h2>"]
+        adj_parts = []
+        if forms.get("komparativ"):
+            adj_parts.append(forms["komparativ"])
+        if forms.get("superlativ"):
+            adj_parts.append(forms["superlativ"])
+        if adj_parts:
+            lines.append(f"<p>{' — '.join(adj_parts)}</p>")
+    elif card["word_type"] == "preposition":
+        if forms.get("kasus"):
+            lines = [f"<h2>{card['base_form']} + {forms['kasus']}</h2>"]
+        else:
+            lines = [f"<h2>{card['base_form']}</h2>"]
+    else:
+        lines = [f"<h2>{card['base_form']}</h2>"]
+
+    return "\n".join(lines)
+
+
+def format_anki_noun_bare(card: dict) -> str:
+    """Noun without article for gender card front. Empty for non-nouns."""
+    if card["word_type"] != "noun":
+        return ""
+    base = card["base_form"]
+    for art in ("der ", "die ", "das "):
+        if base.startswith(art):
+            return base[len(art):]
+    return base
+
+
+def format_anki_noun_full(card: dict) -> str:
+    """Full noun info for gender card back (HTML). Empty for non-nouns."""
+    if card["word_type"] != "noun":
+        return ""
+    forms = card.get("forms", {})
+    parts = [card["base_form"]]
+    if forms.get("plural"):
+        parts.append(forms["plural"])
+    lines = [f"<h2>{', '.join(parts)}</h2>"]
+    hint_parts = [card["translation"]]
+    if card.get("translation_en"):
+        hint_parts.append(card["translation_en"])
+    lines.append(f"<p>{' / '.join(hint_parts)}</p>")
+    return "\n".join(lines)
