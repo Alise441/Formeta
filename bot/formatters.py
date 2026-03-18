@@ -17,6 +17,22 @@ def _is_verb(word_type: str) -> bool:
     return word_type in ("verb", "verb_irregular")
 
 
+def _verb_form_parts(card: dict, short_regular: bool = False) -> list[str]:
+    """Return verb form parts list, respecting short_regular setting."""
+    forms = card.get("forms", {})
+    parts = []
+    if forms.get("prasens_3p"):
+        parts.append(forms["prasens_3p"])
+    if short_regular and card["word_type"] == "verb":
+        # Regular verbs: only prasens_3p
+        return parts
+    if forms.get("prateritum"):
+        parts.append(forms["prateritum"])
+    if forms.get("perfekt"):
+        parts.append(forms["perfekt"])
+    return parts
+
+
 def _escape_md(text: str) -> str:
     """Escape special MarkdownV2 characters, preserving **bold** markers."""
     # First, temporarily replace **bold** markers
@@ -42,7 +58,7 @@ def _escape_md(text: str) -> str:
     return text
 
 
-def format_card_telegram(card: dict, show_translation_en: bool = False) -> str:
+def format_card_telegram(card: dict, show_translation_en: bool = False, short_regular_verbs: bool = False) -> str:
     """Format a card for Telegram MarkdownV2 display."""
     word_type = WORD_TYPE_LABELS.get(card["word_type"], card["word_type"])
     forms = card.get("forms", {})
@@ -70,13 +86,7 @@ def format_card_telegram(card: dict, show_translation_en: bool = False) -> str:
 
     # Forms (no labels)
     if _is_verb(card["word_type"]):
-        form_parts = []
-        if forms.get("prasens_3p"):
-            form_parts.append(forms["prasens_3p"])
-        if forms.get("prateritum"):
-            form_parts.append(forms["prateritum"])
-        if forms.get("perfekt"):
-            form_parts.append(forms["perfekt"])
+        form_parts = _verb_form_parts(card, short_regular=short_regular_verbs)
         if form_parts:
             lines.append(_escape_md(" — ".join(form_parts)))
     elif card["word_type"] == "noun":
@@ -278,20 +288,14 @@ def parse_card_editable(text: str) -> dict:
     }
 
 
-def format_card_anki_front(card: dict) -> str:
+def format_card_anki_front(card: dict, short_regular_verbs: bool = False) -> str:
     """Format card front side for Anki (HTML)."""
     word_type = WORD_TYPE_LABELS.get(card["word_type"], card["word_type"])
     forms = card.get("forms", {})
 
     # Base form + forms in one line
     if _is_verb(card["word_type"]):
-        form_parts = [card["base_form"]]
-        if forms.get("prasens_3p"):
-            form_parts.append(forms["prasens_3p"])
-        if forms.get("prateritum"):
-            form_parts.append(forms["prateritum"])
-        if forms.get("perfekt"):
-            form_parts.append(forms["perfekt"])
+        form_parts = [card["base_form"]] + _verb_form_parts(card, short_regular=short_regular_verbs)
         lines = [f"<h2>{' — '.join(form_parts)}</h2>"]
     elif card["word_type"] == "noun":
         parts = [card["base_form"]]
@@ -357,19 +361,13 @@ def format_anki_translation_hint(card: dict) -> str:
     return " / ".join(parts)
 
 
-def format_anki_base_with_forms(card: dict) -> str:
+def format_anki_base_with_forms(card: dict, short_regular_verbs: bool = False) -> str:
     """German word + forms for reverse card back (HTML)."""
     forms = card.get("forms", {})
 
     if _is_verb(card["word_type"]):
         lines = [f"<h2>{card['base_form']}</h2>"]
-        form_parts = []
-        if forms.get("prasens_3p"):
-            form_parts.append(forms["prasens_3p"])
-        if forms.get("prateritum"):
-            form_parts.append(forms["prateritum"])
-        if forms.get("perfekt"):
-            form_parts.append(forms["perfekt"])
+        form_parts = _verb_form_parts(card, short_regular=short_regular_verbs)
         if form_parts:
             lines.append(f"<p>{' — '.join(form_parts)}</p>")
     elif card["word_type"] == "noun":

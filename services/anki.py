@@ -66,7 +66,8 @@ CARD_MODEL = genanki.Model(
 )
 
 
-def generate_deck(lesson_id: int, cards: list[dict], lesson_date: str, lesson_type: str = "lesson") -> str:
+def generate_deck(lesson_id: int, cards: list[dict], lesson_date: str,
+                  lesson_type: str = "lesson", short_regular_verbs: bool = False) -> str:
     """Generate an Anki deck. lesson_date should be in dd.mm format."""
     os.makedirs(ANKI_OUTPUT_DIR, exist_ok=True)
 
@@ -79,11 +80,11 @@ def generate_deck(lesson_id: int, cards: list[dict], lesson_date: str, lesson_ty
     )
 
     for card in cards:
-        front = format_card_anki_front(card)
+        front = format_card_anki_front(card, short_regular_verbs=short_regular_verbs)
         back = format_card_anki_back(card)
         translation_hint = format_anki_translation_hint(card)
         word_type = WORD_TYPE_LABELS.get(card["word_type"], card["word_type"]).capitalize()
-        base_with_forms = format_anki_base_with_forms(card)
+        base_with_forms = format_anki_base_with_forms(card, short_regular_verbs=short_regular_verbs)
         noun_bare = format_anki_noun_bare(card)
         noun_full = format_anki_noun_full(card)
 
