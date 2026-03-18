@@ -1,9 +1,13 @@
 DEFAULT_SETTINGS = {
     "show_translation_en_telegram": False,
     "quizlet_en_only": False,
+    "short_regular_verbs": False,
 }
 
 USER_SETTINGS = {
+    126573478: {
+        "short_regular_verbs": True,
+    },
     179846598: {
         "show_translation_en_telegram": True,
         "quizlet_en_only": True,

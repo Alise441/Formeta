@@ -43,7 +43,7 @@ async def _notify_partner(context, user_id: int, owner_id: int,
         try:
             if card and card_id:
                 target_settings = get_settings(target)
-                target_text = format_card_telegram(card, show_translation_en=target_settings["show_translation_en_telegram"])
+                target_text = format_card_telegram(card, show_translation_en=target_settings["show_translation_en_telegram"], short_regular_verbs=target_settings["short_regular_verbs"])
                 await context.bot.send_message(
                     chat_id=target, text=target_text,
                     parse_mode="MarkdownV2", reply_markup=card_inline_keyboard(card_id),
@@ -248,9 +248,11 @@ async def handle_export(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not cards:
         await update.message.reply_text("В уроке нет карточек.")
         return
+    settings = get_settings(update.effective_user.id)
     await update.message.reply_text("Генерирую колоду...")
     lesson_date = _get_lesson_date_short(lesson)
-    filepath = generate_deck(lesson["id"], cards, lesson_date, lesson.get("lesson_type", "lesson"))
+    filepath = generate_deck(lesson["id"], cards, lesson_date, lesson.get("lesson_type", "lesson"),
+                             short_regular_verbs=settings["short_regular_verbs"])
     filename = f"formeta_lesson_{lesson_date}.apkg"
     await update.message.reply_document(
         document=open(filepath, "rb"),
@@ -384,7 +386,7 @@ async def handle_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     card = await repo.get_card(card_id)
     settings = get_settings(user_id)
-    formatted = format_card_telegram(card, show_translation_en=settings["show_translation_en_telegram"])
+    formatted = format_card_telegram(card, show_translation_en=settings["show_translation_en_telegram"], short_regular_verbs=settings["short_regular_verbs"])
     await update.message.reply_text(
         formatted,
         parse_mode="MarkdownV2",
@@ -455,7 +457,7 @@ async def handle_edit_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     settings = get_settings(user_id)
     card = await repo.get_card(card_id)
-    formatted = format_card_telegram(card, show_translation_en=settings["show_translation_en_telegram"])
+    formatted = format_card_telegram(card, show_translation_en=settings["show_translation_en_telegram"], short_regular_verbs=settings["short_regular_verbs"])
     updated_text = f"Карточка обновлена\\!\n\n{formatted}"
     await update.message.reply_text(
         updated_text,
@@ -528,7 +530,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
             card = await repo.get_card(card_id)
-            formatted = format_card_telegram(card, show_translation_en=settings["show_translation_en_telegram"])
+            formatted = format_card_telegram(card, show_translation_en=settings["show_translation_en_telegram"], short_regular_verbs=settings["short_regular_verbs"])
             await update.message.reply_text(
                 formatted,
                 parse_mode="MarkdownV2",
