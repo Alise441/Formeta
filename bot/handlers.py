@@ -4,6 +4,7 @@ from telegram import ReplyKeyboardRemove, Update
 from telegram.ext import ContextTypes
 
 from config import ALLOWED_USER_IDS, get_lesson_owner, is_teacher, get_teachers
+from user_settings import get_settings
 from db import repository as repo
 from services.llm import analyze_word, analyze_image_words
 from services.anki import generate_deck
@@ -28,8 +29,11 @@ async def _notify_teachers(context, student_id: int, text: str):
             logger.error(f"Failed to notify teacher {teacher_id}: {e}")
 
 
-async def _notify_partner(context, user_id: int, owner_id: int, text: str, parse_mode=None, reply_markup=None):
-    """Notify the other side: if teacher → student, if student → teachers."""
+async def _notify_partner(context, user_id: int, owner_id: int,
+                          text: str = None, parse_mode=None, reply_markup=None,
+                          card: dict = None, card_id: int = None):
+    """Notify the other side: if teacher → student, if student → teachers.
+    If card is provided, formats per-recipient settings. Otherwise sends text as-is."""
     targets = []
     if is_teacher(user_id):
         targets.append(owner_id)
@@ -37,10 +41,18 @@ async def _notify_partner(context, user_id: int, owner_id: int, text: str, parse
         targets.extend(get_teachers(user_id))
     for target in targets:
         try:
-            await context.bot.send_message(
-                chat_id=target, text=text,
-                parse_mode=parse_mode, reply_markup=reply_markup,
-            )
+            if card and card_id:
+                target_settings = get_settings(target)
+                target_text = format_card_telegram(card, show_translation_en=target_settings["show_translation_en_telegram"])
+                await context.bot.send_message(
+                    chat_id=target, text=target_text,
+                    parse_mode="MarkdownV2", reply_markup=card_inline_keyboard(card_id),
+                )
+            else:
+                await context.bot.send_message(
+                    chat_id=target, text=text,
+                    parse_mode=parse_mode, reply_markup=reply_markup,
+                )
         except Exception as e:
             logger.error(f"Failed to notify {target}: {e}")
 
@@ -273,8 +285,10 @@ async def handle_export_quizlet(update: Update, context: ContextTypes.DEFAULT_TY
     if not cards:
         await update.message.reply_text("В уроке нет карточек.")
         return
+    settings = get_settings(update.effective_user.id)
     lesson_date = _get_lesson_date_short(lesson)
-    filepath = generate_quizlet_export(lesson["id"], cards, lesson_date)
+    filepath = generate_quizlet_export(lesson["id"], cards, lesson_date,
+                                       en_only=settings["quizlet_en_only"])
     await update.message.reply_document(
         document=open(filepath, "rb"),
         filename=f"formeta_quizlet_{lesson_date}.txt",
@@ -369,7 +383,8 @@ async def handle_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     card = await repo.get_card(card_id)
-    formatted = format_card_telegram(card)
+    settings = get_settings(user_id)
+    formatted = format_card_telegram(card, show_translation_en=settings["show_translation_en_telegram"])
     await update.message.reply_text(
         formatted,
         parse_mode="MarkdownV2",
@@ -378,8 +393,7 @@ async def handle_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if _is_lesson(lesson):
         await _notify_partner(context, user_id, owner_id,
-            text=formatted, parse_mode="MarkdownV2",
-            reply_markup=card_inline_keyboard(card_id))
+            card=card, card_id=card_id)
 
 
 async def callback_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -438,8 +452,10 @@ async def handle_edit_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         prepositions=parsed.get("prepositions", []),
     )
     context.user_data.pop("editing_card_id", None)
+    user_id = update.effective_user.id
+    settings = get_settings(user_id)
     card = await repo.get_card(card_id)
-    formatted = format_card_telegram(card)
+    formatted = format_card_telegram(card, show_translation_en=settings["show_translation_en_telegram"])
     updated_text = f"Карточка обновлена\\!\n\n{formatted}"
     await update.message.reply_text(
         updated_text,
@@ -449,11 +465,9 @@ async def handle_edit_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Notify partner only for lessons (not sessions)
     lesson = await repo.get_lesson_by_card(card_id)
     if lesson and _is_lesson(lesson):
-        user_id = update.effective_user.id
         owner_id = get_lesson_owner(user_id)
         await _notify_partner(context, user_id, owner_id,
-            text=updated_text, parse_mode="MarkdownV2",
-            reply_markup=card_inline_keyboard(card_id))
+            card=card, card_id=card_id)
     return True
 
 
@@ -492,6 +506,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await status_msg.edit_text(f"Найдено слов: {len(words)}. Создаю карточки...")
 
+    settings = get_settings(user_id)
     count = 0
     for data in words:
         try:
@@ -513,7 +528,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
             card = await repo.get_card(card_id)
-            formatted = format_card_telegram(card)
+            formatted = format_card_telegram(card, show_translation_en=settings["show_translation_en_telegram"])
             await update.message.reply_text(
                 formatted,
                 parse_mode="MarkdownV2",
@@ -522,8 +537,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             if _is_lesson(lesson):
                 await _notify_partner(context, user_id, owner_id,
-                    text=formatted, parse_mode="MarkdownV2",
-                    reply_markup=card_inline_keyboard(card_id))
+                    card=card, card_id=card_id)
 
             count += 1
         except Exception as e:
