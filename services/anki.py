@@ -53,12 +53,12 @@ CARD_MODEL = genanki.Model(
         },
         {
             "name": "RU/EN → DE",
-            "qfmt": '<h3>{{TranslationHint}}</h3><p class="hint">{{WordType}}</p>',
+            "qfmt": '{{#TranslationHint}}<h3>{{TranslationHint}}</h3><p class="hint">{{WordType}}</p>{{/TranslationHint}}',
             "afmt": '{{FrontSide}}<hr id="answer">{{BaseFormWithForms}}',
         },
         {
             "name": "Artikel",
-            "qfmt": '<h2>{{NounBare}}</h2><p class="gender-q">der / die / das?</p>',
+            "qfmt": '{{#NounBare}}<h2>{{NounBare}}</h2><p class="gender-q">der / die / das?</p>{{/NounBare}}',
             "afmt": '{{FrontSide}}<hr id="answer">{{NounFull}}',
         },
     ],
