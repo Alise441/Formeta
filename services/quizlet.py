@@ -87,17 +87,26 @@ def _format_front_en_only(card: dict) -> str:
             parts.append(forms["perfekt"])
         return " — ".join(parts)
     elif card["word_type"] == "noun":
-        parts = [_strip_article(base)]
+        parts = [base]
         if forms.get("plural"):
-            parts.append(_strip_article(forms["plural"]))
+            parts.append(forms["plural"])
         return " — ".join(parts)
     else:
         return base
 
 
+def _strip_en_article(text: str) -> str:
+    """Remove English articles from the beginning."""
+    for art in ("the ", "a ", "an "):
+        if text.lower().startswith(art):
+            return text[len(art):]
+    return text
+
+
 def _format_back_en_only(card: dict) -> str:
-    """Back side for EN-only mode: just English translation."""
-    return card.get("translation_en", card["translation"])
+    """Back side for EN-only mode: English translation without articles."""
+    translation = card.get("translation_en", card["translation"])
+    return _strip_en_article(translation)
 
 
 def generate_quizlet_export(lesson_id: int, cards: list[dict], lesson_date: str,
