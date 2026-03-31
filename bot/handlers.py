@@ -360,13 +360,16 @@ async def handle_word(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_chat_action("typing")
 
     try:
-        data = await analyze_word(text)
+        data, used_fallback = await analyze_word(text)
     except Exception as e:
         logger.error(f"LLM error for '{text}': {e}")
         await update.message.reply_text(
             f"Ошибка при анализе слова «{text}». Попробуйте ещё раз."
         )
         return
+
+    if used_fallback:
+        await update.message.reply_text("⚡ Основная модель перегружена, использую резервную.")
 
     # Build example dict from LLM response
     example = None
@@ -498,7 +501,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         photo = update.message.photo[-1]
         file = await context.bot.get_file(photo.file_id)
         image_bytes = await file.download_as_bytearray()
-        words = await analyze_image_words(bytes(image_bytes))
+        words, used_fallback = await analyze_image_words(bytes(image_bytes))
     except Exception as e:
         logger.error(f"Image analysis error: {e}")
         await status_msg.edit_text("Ошибка при анализе изображения. Попробуйте ещё раз.")
@@ -508,7 +511,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await status_msg.edit_text("Не нашла подчёркнутых слов на изображении.")
         return
 
-    await status_msg.edit_text(f"Найдено слов: {len(words)}. Создаю карточки...")
+    fallback_note = " (резервная модель)" if used_fallback else ""
+    await status_msg.edit_text(f"Найдено слов: {len(words)}. Создаю карточки...{fallback_note}")
 
     settings = get_settings(user_id)
     count = 0

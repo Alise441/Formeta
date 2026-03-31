@@ -164,14 +164,35 @@ def _parse_json(text: str):
         raise
 
 
-async def analyze_word(text: str) -> dict:
-    message = await client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1024,
-        messages=[{"role": "user", "content": text}],
-        system=SYSTEM_PROMPT,
+PRIMARY_MODEL = "claude-sonnet-4-6"
+FALLBACK_MODEL = "claude-haiku-4-5-20251001"
+
+
+async def _call_llm(model: str, max_tokens: int, messages: list, system: str):
+    """Call Claude API with fallback to Haiku on overload. Returns (response, used_fallback)."""
+    try:
+        resp = await client.messages.create(
+            model=model, max_tokens=max_tokens, messages=messages, system=system,
+        )
+        return resp, False
+    except anthropic.APIStatusError as e:
+        if e.status_code == 529 and model != FALLBACK_MODEL:
+            logger.warning(f"{model} overloaded, falling back to {FALLBACK_MODEL}")
+            resp = await client.messages.create(
+                model=FALLBACK_MODEL, max_tokens=max_tokens, messages=messages, system=system,
+            )
+            return resp, True
+        raise
+
+
+async def analyze_word(text: str) -> tuple[dict, bool]:
+    """Returns (parsed_data, used_fallback)."""
+    message, fallback = await _call_llm(
+        PRIMARY_MODEL, 1024,
+        [{"role": "user", "content": text}],
+        SYSTEM_PROMPT,
     )
-    return _parse_json(message.content[0].text)
+    return _parse_json(message.content[0].text), fallback
 
 
 IMAGE_SYSTEM_PROMPT = """\
@@ -213,16 +234,15 @@ IMAGE_SYSTEM_PROMPT = """\
 
 async def analyze_image_words(image_bytes: bytes, media_type: str = "image/jpeg") -> list[dict]:
     image_b64 = base64.b64encode(image_bytes).decode("utf-8")
-    message = await client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=4096,
-        messages=[{
+    message = await _call_llm(
+        PRIMARY_MODEL, 4096,
+        [{
             "role": "user",
             "content": [
                 {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_b64}},
                 {"type": "text", "text": "Найди все подчёркнутые или выделенные слова на изображении и проанализируй каждое."},
             ],
         }],
-        system=IMAGE_SYSTEM_PROMPT,
+        IMAGE_SYSTEM_PROMPT,
     )
-    return _parse_json(message.content[0].text)
+    return _parse_json(message.content[0].text), fallback
