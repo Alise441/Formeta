@@ -1,7 +1,7 @@
 import os
 
 from config import ANKI_OUTPUT_DIR
-from bot.formatters import _is_verb
+from bot.formatters import _is_verb, _has_form
 
 
 def _format_front(card: dict) -> str:
@@ -10,29 +10,29 @@ def _format_front(card: dict) -> str:
 
     if _is_verb(card["word_type"]):
         parts = [base]
-        if forms.get("prasens_3p"):
+        if _has_form(forms.get("prasens_3p")):
             parts.append(forms["prasens_3p"])
-        if forms.get("prateritum"):
+        if _has_form(forms.get("prateritum")):
             parts.append(forms["prateritum"])
-        if forms.get("perfekt"):
+        if _has_form(forms.get("perfekt")):
             parts.append(forms["perfekt"])
         return " — ".join(parts)
     elif card["word_type"] == "noun":
         parts = [base]
-        if forms.get("plural"):
+        if _has_form(forms.get("plural")):
             parts.append(forms["plural"])
-        if forms.get("genitiv"):
+        if _has_form(forms.get("genitiv")):
             parts.append(forms["genitiv"])
         return ", ".join(parts)
     elif card["word_type"] == "adjective":
         parts = [base]
-        if forms.get("komparativ"):
+        if _has_form(forms.get("komparativ")):
             parts.append(forms["komparativ"])
-        if forms.get("superlativ"):
+        if _has_form(forms.get("superlativ")):
             parts.append(forms["superlativ"])
         return " — ".join(parts)
     elif card["word_type"] == "preposition":
-        if forms.get("kasus"):
+        if _has_form(forms.get("kasus")):
             return f"{base} + {forms['kasus']}"
         return base
     else:
@@ -79,16 +79,16 @@ def _format_front_en_only(card: dict) -> str:
 
     if _is_verb(card["word_type"]):
         parts = [base]
-        if forms.get("prasens_3p"):
+        if _has_form(forms.get("prasens_3p")):
             parts.append(forms["prasens_3p"])
-        if forms.get("prateritum"):
+        if _has_form(forms.get("prateritum")):
             parts.append(forms["prateritum"])
-        if forms.get("perfekt"):
+        if _has_form(forms.get("perfekt")):
             parts.append(forms["perfekt"])
         return " — ".join(parts)
     elif card["word_type"] == "noun":
         parts = [base]
-        if forms.get("plural"):
+        if _has_form(forms.get("plural")):
             parts.append(forms["plural"])
         return " — ".join(parts)
     else:

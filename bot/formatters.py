@@ -17,21 +17,28 @@ def _is_verb(word_type: str) -> bool:
     return word_type in ("verb", "verb_irregular")
 
 
+def _has_form(value) -> bool:
+    """Check if a form value is meaningful (not empty, not a dash placeholder)."""
+    if not value:
+        return False
+    return value.strip().strip("—–-") != ""
+
+
 def _verb_display(card: dict, short_regular: bool = False) -> str:
     """Format verb as 'base_form (prasens_3p) — prateritum — perfekt'.
     For regular verbs with short_regular=True, only 'base_form (prasens_3p)'."""
     forms = card.get("forms", {})
     base = card["base_form"]
-    if forms.get("prasens_3p"):
+    if _has_form(forms.get("prasens_3p")):
         head = f"{base} ({forms['prasens_3p']})"
     else:
         head = base
     if short_regular and card["word_type"] == "verb":
         return head
     rest = []
-    if forms.get("prateritum"):
+    if _has_form(forms.get("prateritum")):
         rest.append(forms["prateritum"])
-    if forms.get("perfekt"):
+    if _has_form(forms.get("perfekt")):
         rest.append(forms["perfekt"])
     if rest:
         return f"{head} — {' — '.join(rest)}"
@@ -94,22 +101,22 @@ def format_card_telegram(card: dict, show_translation_en: bool = False, short_re
         lines.append(_escape_md(_verb_display(card, short_regular=short_regular_verbs)))
     elif card["word_type"] == "noun":
         noun_parts = []
-        if forms.get("plural"):
+        if _has_form(forms.get("plural")):
             noun_parts.append(forms["plural"])
-        if forms.get("genitiv"):
+        if _has_form(forms.get("genitiv")):
             noun_parts.append(forms["genitiv"])
         if noun_parts:
             lines.append(_escape_md(", ".join(noun_parts)))
     elif card["word_type"] == "adjective":
         adj_parts = []
-        if forms.get("komparativ"):
+        if _has_form(forms.get("komparativ")):
             adj_parts.append(forms["komparativ"])
-        if forms.get("superlativ"):
+        if _has_form(forms.get("superlativ")):
             adj_parts.append(forms["superlativ"])
         if adj_parts:
             lines.append(_escape_md(" — ".join(adj_parts)))
     elif card["word_type"] == "preposition":
-        if forms.get("kasus"):
+        if _has_form(forms.get("kasus")):
             lines.append(_escape_md(f"+ {forms['kasus']}"))
 
     # Prepositions / governance
@@ -147,32 +154,32 @@ def format_card_editable(card: dict) -> str:
 
     if _is_verb(card["word_type"]):
         form_parts = []
-        if forms.get("prasens_3p"):
+        if _has_form(forms.get("prasens_3p")):
             form_parts.append(forms["prasens_3p"])
-        if forms.get("prateritum"):
+        if _has_form(forms.get("prateritum")):
             form_parts.append(forms["prateritum"])
-        if forms.get("perfekt"):
+        if _has_form(forms.get("perfekt")):
             form_parts.append(forms["perfekt"])
         if form_parts:
             lines.append(" — ".join(form_parts))
     elif card["word_type"] == "noun":
         noun_parts = []
-        if forms.get("plural"):
+        if _has_form(forms.get("plural")):
             noun_parts.append(forms["plural"])
-        if forms.get("genitiv"):
+        if _has_form(forms.get("genitiv")):
             noun_parts.append(forms["genitiv"])
         if noun_parts:
             lines.append(", ".join(noun_parts))
     elif card["word_type"] == "adjective":
         adj_parts = []
-        if forms.get("komparativ"):
+        if _has_form(forms.get("komparativ")):
             adj_parts.append(forms["komparativ"])
-        if forms.get("superlativ"):
+        if _has_form(forms.get("superlativ")):
             adj_parts.append(forms["superlativ"])
         if adj_parts:
             lines.append(" — ".join(adj_parts))
     elif card["word_type"] == "preposition":
-        if forms.get("kasus"):
+        if _has_form(forms.get("kasus")):
             lines.append(f"+ {forms['kasus']}")
 
     for prep in prepositions:
@@ -301,20 +308,20 @@ def format_card_anki_front(card: dict, short_regular_verbs: bool = False) -> str
         lines = [f"<h2>{_verb_display(card, short_regular=short_regular_verbs)}</h2>"]
     elif card["word_type"] == "noun":
         parts = [card["base_form"]]
-        if forms.get("plural"):
+        if _has_form(forms.get("plural")):
             parts.append(forms["plural"])
-        if forms.get("genitiv"):
+        if _has_form(forms.get("genitiv")):
             parts.append(forms["genitiv"])
         lines = [f"<h2>{', '.join(parts)}</h2>"]
     elif card["word_type"] == "adjective":
         parts = [card["base_form"]]
-        if forms.get("komparativ"):
+        if _has_form(forms.get("komparativ")):
             parts.append(forms["komparativ"])
-        if forms.get("superlativ"):
+        if _has_form(forms.get("superlativ")):
             parts.append(forms["superlativ"])
         lines = [f"<h2>{' — '.join(parts)}</h2>"]
     elif card["word_type"] == "preposition":
-        if forms.get("kasus"):
+        if _has_form(forms.get("kasus")):
             lines = [f"<h2>{card['base_form']} + {forms['kasus']}</h2>"]
         else:
             lines = [f"<h2>{card['base_form']}</h2>"]
@@ -371,20 +378,20 @@ def format_anki_base_with_forms(card: dict, short_regular_verbs: bool = False) -
         lines = [f"<h2>{_verb_display(card, short_regular=short_regular_verbs)}</h2>"]
     elif card["word_type"] == "noun":
         parts = [card["base_form"]]
-        if forms.get("plural"):
+        if _has_form(forms.get("plural")):
             parts.append(forms["plural"])
         lines = [f"<h2>{', '.join(parts)}</h2>"]
     elif card["word_type"] == "adjective":
         lines = [f"<h2>{card['base_form']}</h2>"]
         adj_parts = []
-        if forms.get("komparativ"):
+        if _has_form(forms.get("komparativ")):
             adj_parts.append(forms["komparativ"])
-        if forms.get("superlativ"):
+        if _has_form(forms.get("superlativ")):
             adj_parts.append(forms["superlativ"])
         if adj_parts:
             lines.append(f"<p>{' — '.join(adj_parts)}</p>")
     elif card["word_type"] == "preposition":
-        if forms.get("kasus"):
+        if _has_form(forms.get("kasus")):
             lines = [f"<h2>{card['base_form']} + {forms['kasus']}</h2>"]
         else:
             lines = [f"<h2>{card['base_form']}</h2>"]
@@ -411,7 +418,7 @@ def format_anki_noun_full(card: dict) -> str:
         return ""
     forms = card.get("forms", {})
     parts = [card["base_form"]]
-    if forms.get("plural"):
+    if _has_form(forms.get("plural")):
         parts.append(forms["plural"])
     lines = [f"<h2>{', '.join(parts)}</h2>"]
     hint_parts = [card["translation"]]
