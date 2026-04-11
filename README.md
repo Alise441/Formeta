@@ -1,155 +1,155 @@
 # Formeta
 
-Telegram-бот для изучения немецкого языка. Добавляйте слова во время урока — бот автоматически определит базовую форму, грамматику, переводы и пример использования. Готовые карточки можно экспортировать в Anki или Quizlet.
+Telegram bot for learning German vocabulary. Add words during a lesson — the bot automatically detects the base form, grammar, translations, and usage example. Cards can be exported to Anki or Quizlet.
 
-## Возможности
+## Features
 
-- Анализ немецких слов через Claude API (базовая форма, часть речи, грамматические формы, переводы RU/EN, пример)
-- Распознавание слов с фотографий — отправьте фото с подчёркнутыми словами, бот создаст карточки для каждого
-- Обработка целых предложений — перевод RU/EN без грамматического разбора
-- Уроки (с подключением преподавателя) и сессии (личные, без преподавателя)
-- Редактирование и удаление карточек
-- Экспорт в Anki (.apkg) — 3 типа карточек: DE→RU (узнавание), RU/EN→DE (воспроизведение), Род (der/die/das для существительных)
-- Экспорт в Quizlet (.txt)
-- Многопользовательский режим с изоляцией данных
-- Индивидуальные настройки карточек для каждого пользователя
-- Роль преподавателя: подключение к урокам, взаимные уведомления, выгрузка пройденных слов с фильтрацией по урокам и частям речи
+- German word analysis via Claude API (base form, part of speech, grammatical forms, RU/EN translations, example)
+- Word recognition from photos — send a photo with underlined words, the bot creates a card for each
+- Full sentence handling — RU/EN translation without grammar breakdown
+- Lessons (with teacher participation) and sessions (personal, without teacher)
+- Card editing and deletion
+- Anki export (.apkg) — 3 card types: DE→RU (recognition), RU/EN→DE (production), Gender (der/die/das for nouns)
+- Quizlet export (.txt)
+- Multi-user mode with data isolation
+- Per-user card settings
+- Teacher role: automatic lesson join, mutual notifications, word export with lesson and part-of-speech filtering
 
-## Деплой
+## Deployment
 
-### Требования
+### Requirements
 
-- Docker и Docker Compose
-- Telegram Bot Token (получить у [@BotFather](https://t.me/BotFather))
-- Anthropic API Key (получить на [console.anthropic.com](https://console.anthropic.com))
+- Docker and Docker Compose
+- Telegram Bot Token (get from [@BotFather](https://t.me/BotFather))
+- Anthropic API Key (get at [console.anthropic.com](https://console.anthropic.com))
 
-### Установка
+### Setup
 
-1. Клонируйте репозиторий:
+1. Clone the repository:
 
 ```bash
 git clone git@github.com:Alise441/Formeta.git
 cd Formeta
 ```
 
-2. Создайте файл `.env`:
+2. Create a `.env` file:
 
 ```env
-TELEGRAM_BOT_TOKEN=ваш_токен_бота
-ANTHROPIC_API_KEY=ваш_api_ключ
+TELEGRAM_BOT_TOKEN=your_bot_token
+ANTHROPIC_API_KEY=your_api_key
 
-# Telegram ID пользователей, которым разрешён доступ (через запятую)
+# Telegram IDs of allowed users (comma-separated)
 ALLOWED_USER_IDS=123456789,987654321
 
-# Преподаватели (необязательно): teacher_id:student_id через запятую
+# Teachers (optional): teacher_id:student_id, comma-separated
 TEACHERS=111111111:123456789
 ```
 
-Узнать свой Telegram ID можно у бота [@userinfobot](https://t.me/userinfobot).
+You can find your Telegram ID via [@userinfobot](https://t.me/userinfobot).
 
-3. Запустите:
+3. Start:
 
 ```bash
 docker compose up -d --build
 ```
 
-Бот готов — напишите ему `/start` в Telegram.
+The bot is ready — send it `/start` in Telegram.
 
-### Обновление
+### Updating
 
 ```bash
 git pull
 docker compose up -d --build
 ```
 
-### Данные
+### Data
 
-База данных и экспортированные файлы хранятся в папке `data/` (Docker volume). При обновлении кода данные сохраняются.
+The database and exported files are stored in the `data/` folder (Docker volume). Data persists across code updates.
 
-## Использование
+## Usage
 
-### Урок vs Сессия
+### Lesson vs Session
 
-- **Урок** — преподаватель автоматически подключается, видит слова и может добавлять свои. Оба получают уведомления.
-- **Сессия** — личный режим для самостоятельного изучения. Преподаватель не получает уведомлений и не участвует.
+- **Lesson** — teacher automatically joins, sees words, and can add their own. Both receive notifications.
+- **Session** — personal mode for independent study. Teacher doesn't receive notifications and doesn't participate.
 
-### Добавление слов
+### Adding Words
 
-Во время активного урока или сессии просто отправьте немецкое слово или фразу в любой форме:
+During an active lesson or session, simply send a German word or phrase in any form:
 
-- `gelaufen` → бот определит базовую форму `laufen`, покажет спряжения, перевод и пример
-- `die Häuser` → бот определит `das Haus`, покажет множественное число и генитив
-- `es geht um` → бот распознает фразу и покажет перевод с примером
-- Целое предложение → бот покажет только перевод на русский и английский
+- `gelaufen` → bot detects the base form `laufen`, shows conjugations, translation, and example
+- `die Häuser` → bot detects `das Haus`, shows plural and genitive
+- `es geht um` → bot recognizes the phrase and shows translation with example
+- A full sentence → bot shows only RU/EN translation
 
-### Фото с подчёркнутыми словами
+### Photos with Underlined Words
 
-Отправьте фото текста (учебник, доска, рабочий лист) с подчёркнутыми или выделенными словами — бот распознает все отмеченные слова и создаст карточку для каждого.
+Send a photo of text (textbook, board, worksheet) with underlined or highlighted words — the bot recognizes all marked words and creates a card for each.
 
-### Кнопки
+### Buttons
 
-| Кнопка | Действие |
-|--------|----------|
-| Начать урок | Начать урок (преподаватель подключается) |
-| Начать сессию | Начать личную сессию |
-| Слова урока | Показать все слова текущего урока/сессии |
-| Завершить урок/сессию | Завершить и перейти к экспорту |
-| Экспорт в Anki | Скачать .apkg файл |
-| Экспорт в Quizlet | Скачать .txt файл |
-| Возобновить урок/сессию | Продолжить последний завершённый |
-| История | Показать последние уроки и сессии |
+| Button | Action |
+|--------|--------|
+| Start Lesson | Start a lesson (teacher joins) |
+| Start Session | Start a personal session |
+| Lesson Words | Show all words of the current lesson/session |
+| End Lesson/Session | End and proceed to export |
+| Export to Anki | Download .apkg file |
+| Export to Quizlet | Download .txt file |
+| Resume Lesson/Session | Continue the last ended one |
+| History | Show recent lessons and sessions |
 
-У каждой карточки есть inline-кнопки **Редактировать** и **Удалить**.
+Each card has inline **Edit** and **Delete** buttons.
 
-### Преподаватель
+### Teacher
 
-Когда нет активного урока, преподаватель видит кнопку **Выгрузить слова**:
+When no lesson is active, the teacher sees an **Export Words** button:
 
-1. Выбрать уроки (чекбоксы)
-2. Выбрать части речи (глаголы, существительные, прилагательные, фразы, остальное)
-3. Получить `.txt` файл со списком слов
+1. Select lessons (checkboxes)
+2. Select parts of speech (verbs, nouns, adjectives, phrases, other)
+3. Get a `.txt` file with the word list
 
-### Экспорт в Anki
+### Anki Export
 
-1. Завершите урок или сессию
-2. Нажмите **Экспорт в Anki**
-3. Бот пришлёт `.apkg` файл
-4. Откройте файл в Anki (десктоп) или импортируйте через AnkiDroid/AnkiMobile
-5. Колода появится в списке как `Formeta — #N Урок dd.mm`
+1. End the lesson or session
+2. Tap **Export to Anki**
+3. The bot sends a `.apkg` file
+4. Open the file in Anki (desktop) or import via AnkiDroid/AnkiMobile
+5. The deck appears as `Formeta — #N Lesson dd.mm`
 
-Каждое слово генерирует до 3 карточек:
-- **DE → RU** — узнавание (немецкое слово → перевод)
-- **RU/EN → DE** — воспроизведение (перевод → немецкое слово), не создаётся для фраз
-- **Род** — `der / die / das?` для существительных
+Each word generates up to 3 cards:
+- **DE → RU** — recognition (German word → translation)
+- **RU/EN → DE** — production (translation → German word), not created for phrases
+- **Gender** — `der / die / das?` for nouns
 
-### Экспорт в Quizlet
+### Quizlet Export
 
-1. Завершите урок или сессию
-2. Нажмите **Экспорт в Quizlet**
-3. Бот пришлёт `.txt` файл
-4. Откройте [Quizlet](https://quizlet.com) → **Create** → **Import**
-5. Скопируйте содержимое файла в поле импорта
-6. Разделитель между термином и определением: **Tab**
-7. Разделитель между карточками: **Custom** → **\n\n**
+1. End the lesson or session
+2. Tap **Export to Quizlet**
+3. The bot sends a `.txt` file
+4. Open [Quizlet](https://quizlet.com) → **Create** → **Import**
+5. Paste the file contents into the import field
+6. Term/definition separator: **Tab**
+7. Card separator: **Custom** → **\n\n**
 
-## Структура проекта
+## Project Structure
 
 ```
 Formeta/
-├── main.py              # Точка входа, роутинг сообщений
-├── config.py            # Конфигурация из .env
-├── user_settings.py     # Индивидуальные настройки пользователей
+├── main.py              # Entry point, message routing
+├── config.py            # Configuration from .env
+├── user_settings.py     # Per-user settings
 ├── bot/
-│   ├── handlers.py      # Обработчики команд и сообщений
-│   ├── keyboards.py     # Reply и Inline клавиатуры
-│   └── formatters.py    # Форматирование карточек (Telegram, Anki, редактор)
+│   ├── handlers.py      # Command and message handlers
+│   ├── keyboards.py     # Reply and Inline keyboards
+│   └── formatters.py    # Card formatting (Telegram, Anki, editor)
 ├── db/
-│   ├── models.py        # Схема БД и миграции
-│   └── repository.py    # CRUD-операции
+│   ├── models.py        # DB schema and migrations
+│   └── repository.py    # CRUD operations
 ├── services/
-│   ├── llm.py           # Интеграция с Claude API
-│   ├── anki.py          # Генерация .apkg колод
-│   └── quizlet.py       # Генерация .txt для Quizlet
+│   ├── llm.py           # Claude API integration
+│   ├── anki.py          # .apkg deck generation
+│   └── quizlet.py       # .txt generation for Quizlet
 ├── Dockerfile
 ├── docker-compose.yml
 └── requirements.txt
