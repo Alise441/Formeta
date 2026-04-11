@@ -2,6 +2,15 @@
 
 Telegram bot for learning German vocabulary. Add words during a lesson — the bot automatically detects the base form, grammar, translations, and usage example. Cards can be exported to Anki or Quizlet.
 
+## Tech Stack
+
+- **Python 3.11+** — async/await
+- **Claude API** (Anthropic SDK) — word analysis, sentence translation, image recognition
+- **Telegram Bot API** (python-telegram-bot) — bot interface
+- **SQLite** (aiosqlite) — async database with manual migrations
+- **genanki** — Anki .apkg deck generation
+- **Docker** + Docker Compose — deployment
+
 ## Features
 
 - German word analysis via Claude API (base form, part of speech, grammatical forms, RU/EN translations, example)
