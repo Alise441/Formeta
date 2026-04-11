@@ -163,3 +163,7 @@ Formeta/
 ├── docker-compose.yml
 └── requirements.txt
 ```
+
+## License
+
+[MIT](LICENSE)
