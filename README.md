@@ -56,7 +56,25 @@ TEACHERS=111111111:123456789
 
 You can find your Telegram ID via [@userinfobot](https://t.me/userinfobot).
 
-3. Start:
+3. Create a `settings.json` file for per-user card settings (see `settings.example.json`):
+
+```json
+{
+  "123456789": {
+    "short_regular_verbs": true,
+    "show_translation_en_telegram": false,
+    "quizlet_en_only": false
+  }
+}
+```
+
+| Setting | Description |
+|---------|-------------|
+| `short_regular_verbs` | Regular verbs show only 2 forms (infinitive + 3rd person) |
+| `show_translation_en_telegram` | Show English translation in Telegram cards |
+| `quizlet_en_only` | Quizlet export: EN-only translations, no phrases |
+
+4. Start:
 
 ```bash
 docker compose up -d --build
@@ -147,7 +165,8 @@ Each word generates up to 3 cards:
 Formeta/
 ├── main.py              # Entry point, message routing
 ├── config.py            # Configuration from .env
-├── user_settings.py     # Per-user settings
+├── user_settings.py     # Per-user settings (loaded from settings.json)
+├── settings.example.json # Example per-user settings
 ├── bot/
 │   ├── handlers.py      # Command and message handlers
 │   ├── keyboards.py     # Reply and Inline keyboards
